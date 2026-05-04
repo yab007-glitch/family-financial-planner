@@ -59,9 +59,105 @@ async function initDashboard(slug) {
     // Smart Recommendations (NEW)
     await loadSmartRecommendations(family.data, summary.data);
 
+    // Dashboard Charts
+    renderAssetChart(family.data);
+    renderBudgetChart(family.data);
+
   } catch (err) {
-    document.getElementById('page-content').innerHTML = `<div class="empty-state"><p>Error loading dashboard: ${err.message}</p></div>`;
+    Loading.error('page-content', `Error loading dashboard: ${err.message}`);
   }
+}
+
+function renderAssetChart(family) {
+  const canvas = document.getElementById('chart-assets');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  const accounts = family.accounts || [];
+  if (accounts.length === 0) {
+    canvas.parentElement.innerHTML = '<div class="empty-state"><p>No accounts yet</p></div>';
+    return;
+  }
+
+  const labels = accounts.map(a => a.type);
+  const data = accounts.map(a => Math.max(0, a.balance || 0));
+  const colors = ['#2563eb', '#16a34a', '#ca8a04', '#dc2626', '#7c3aed', '#0891b2', '#c026d3'];
+
+  new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors.slice(0, data.length),
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyleWidth: 10, font: { size: 12 } } },
+        tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${formatCurrency(ctx.raw)}` } }
+      }
+    }
+  });
+}
+
+function renderBudgetChart(family) {
+  const canvas = document.getElementById('chart-budget');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  const entries = family.budget || [];
+  const incomeEntries = entries.filter(e => e.type === 'income');
+  const expenseEntries = entries.filter(e => e.type === 'expense');
+
+  if (incomeEntries.length === 0 && expenseEntries.length === 0) {
+    canvas.parentElement.innerHTML = '<div class="empty-state"><p>Add budget entries to see chart</p></div>';
+    return;
+  }
+
+  // Group expenses by category
+  const expenseByCategory = {};
+  expenseEntries.forEach(e => {
+    const cat = e.category || 'Other';
+    expenseByCategory[cat] = (expenseByCategory[cat] || 0) + (e.amount || 0);
+  });
+
+  const totalIncome = incomeEntries.reduce((s, e) => s + (e.amount || 0), 0);
+  const labels = ['Income', ...Object.keys(expenseByCategory)];
+  const data = [totalIncome, ...Object.values(expenseByCategory)];
+  const colors = ['#16a34a', ...generateBarColors(Object.keys(expenseByCategory).length)];
+
+  new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderRadius: 6,
+        maxBarThickness: 40
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (ctx) => formatCurrency(ctx.raw) } }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: (v) => '$' + v.toLocaleString() } },
+        x: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function generateBarColors(count) {
+  const palette = ['#dc2626', '#ea580c', '#d97706', '#65a30d', '#059669', '#0891b2', '#7c3aed', '#c026d3'];
+  return Array.from({ length: count }, (_, i) => palette[i % palette.length]);
 }
 
 async function loadSmartRecommendations(family, summary) {

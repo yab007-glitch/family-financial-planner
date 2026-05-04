@@ -3,42 +3,59 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Family Financial Planner - Track finances, plan goals, and build wealth">
   <title>Family Financial Planner</title>
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <button class="mobile-menu-btn" id="menu-toggle" aria-label="Toggle navigation menu">☰</button>
   <div id="app">
-    <nav class="sidebar" id="sidebar">
+    <nav class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
       <div class="sidebar-header">
         <h1>🏠 Planner</h1>
         <span class="family-name" id="family-name">Select Family</span>
       </div>
-      <ul class="nav-links">
-        <li><a href="#/dashboard" data-page="dashboard">📊 Dashboard</a></li>
-        <li><a href="#/family" data-page="family">👨‍👩‍👧‍👦 Family</a></li>
-        <li><a href="#/finances" data-page="finances">💰 Finances</a></li>
-        <li><a href="#/budget" data-page="budget">📋 Budget</a></li>
-        <li><a href="#/tax-planner" data-page="tax-planner">📊 Tax Planner</a></li>
-        <li><a href="#/mortgage-invest" data-page="mortgage-invest">🏠 Mortgage vs Invest</a></li>
-        <li><a href="#/retirement-sim" data-page="retirement-sim">👴 Retirement Sim</a></li>
-        <li><a href="#/monte-carlo" data-page="monte-carlo">🎲 Monte Carlo</a></li>
-        <li><a href="#/fhsa" data-page="fhsa">🏡 FHSA Checker</a></li>
-        <li><a href="#/export" data-page="export">📄 Export Report</a></li>
-        <li><a href="#/goals" data-page="goals">🎯 Goals</a></li>
-        <li><a href="#/insurance" data-page="insurance">🛡️ Insurance</a></li>
-        <li><a href="#/actions" data-page="actions">✅ Actions</a></li>
-        <li><a href="#/milestones" data-page="milestones">🏁 Milestones</a></li>
+      <ul class="nav-links" role="list">
+        <li><a href="#/dashboard" data-page="dashboard" aria-label="Dashboard">📊 Dashboard</a></li>
+        <li><a href="#/family" data-page="family" aria-label="Family members">👨‍👩‍👧‍👦 Family</a></li>
+        <li><a href="#/finances" data-page="finances" aria-label="Financial accounts and debts">💰 Finances</a></li>
+        <li><a href="#/budget" data-page="budget" aria-label="Monthly budget">📋 Budget</a></li>
+        <li><a href="#/tax-planner" data-page="tax-planner" aria-label="Tax planner">📊 Tax Planner</a></li>
+        <li><a href="#/mortgage-invest" data-page="mortgage-invest" aria-label="Mortgage vs Invest calculator">🏠 Mortgage vs Invest</a></li>
+        <li><a href="#/retirement-sim" data-page="retirement-sim" aria-label="Retirement simulator">👴 Retirement Sim</a></li>
+        <li><a href="#/monte-carlo" data-page="monte-carlo" aria-label="Monte Carlo simulation">🎲 Monte Carlo</a></li>
+        <li><a href="#/fhsa" data-page="fhsa" aria-label="FHSA checker">🏡 FHSA Checker</a></li>
+        <li><a href="#/export" data-page="export" aria-label="Export report">📄 Export Report</a></li>
+        <li><a href="#/goals" data-page="goals" aria-label="Financial goals">🎯 Goals</a></li>
+        <li><a href="#/insurance" data-page="insurance" aria-label="Insurance coverage">🛡️ Insurance</a></li>
+        <li><a href="#/actions" data-page="actions" aria-label="Action items checklist">✅ Actions</a></li>
+        <li><a href="#/milestones" data-page="milestones" aria-label="Financial milestones">🏁 Milestones</a></li>
       </ul>
       <div class="sidebar-footer no-print">
-        <button id="btn-pdf" class="btn-secondary">📄 Export PDF</button>
+        <button id="btn-pdf" class="btn-secondary" aria-label="Export financial report as PDF">📄 Export PDF</button>
       </div>
     </nav>
-    <main class="main-content">
-      <div id="page-content"></div>
+    <main class="main-content" id="main-content" role="main">
+      <div id="page-content" aria-live="polite"></div>
     </main>
   </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="/js/api.js"></script>
+  <script src="/js/ux.js"></script>
   <script src="/js/router.js"></script>
   <script src="/js/app.js"></script>
+  <script>
+    // Mobile menu toggle
+    document.getElementById('menu-toggle').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('open');
+    });
+    // Close sidebar on nav click (mobile)
+    document.querySelectorAll('.nav-links a').forEach(a => {
+      a.addEventListener('click', () => {
+        document.getElementById('sidebar').classList.remove('open');
+      });
+    });
+  </script>
 </body>
 </html>

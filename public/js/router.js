@@ -10,6 +10,13 @@ const Router = {
     const stored = localStorage.getItem('familySlug');
     if (stored) this.familySlug = stored;
     this.load();
+
+    // Keyboard navigation: Escape closes modals
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+      }
+    });
   },
 
   getPageFromHash() {
@@ -27,7 +34,7 @@ const Router = {
     });
 
     const container = document.getElementById('page-content');
-    container.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+    Loading.show(container, 'Loading page...');
 
     try {
       // Fetch page template
@@ -41,12 +48,13 @@ const Router = {
         await window[`init${this.capitalize(page)}`](this.familySlug);
       }
     } catch (err) {
-      container.innerHTML = `<div class="empty-state"><p>Failed to load page: ${err.message}</p></div>`;
+      Loading.error(container, `Failed to load page: ${err.message}`);
     }
   },
 
   capitalize(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
+    // Handle hyphenated page names like "tax-planner" -> "TaxPlanner"
+    return str.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('');
   },
 
   go(page) {
