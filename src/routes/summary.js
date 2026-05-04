@@ -3,6 +3,7 @@ const router = express.Router({ mergeParams: true });
 const db = require('../db/queries');
 const { success, error } = require('../utils/response');
 const { validateFamily } = require('../middleware/familySlug');
+const { sanitizeError } = require('../middleware/security');
 
 router.use(validateFamily);
 
@@ -29,7 +30,7 @@ router.get('/', async (req, res) => {
       savingsRate: parseFloat(savingsRate)
     }));
   } catch (err) {
-    res.status(500).json(error(err.message));
+    res.status(500).json(error(sanitizeError(err)));
   }
 });
 

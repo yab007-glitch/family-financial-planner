@@ -2,28 +2,43 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/queries');
 const { success, error } = require('../utils/response');
+const { validateRequired, sanitizeBody, sanitizeString, sanitizeError } = require('../middleware/security');
 
 router.get('/', async (req, res) => {
   try {
     const families = await db.all('SELECT * FROM families ORDER BY created_at DESC');
     res.json(success(families));
   } catch (err) {
-    res.status(500).json(error(err.message));
+    res.status(500).json(error(sanitizeError(err)));
   }
 });
 
-router.post('/', async (req, res) => {
-  try {
-    const { name, slug } = req.body;
-    if (!name || !slug) {
-      return res.status(400).json(error('Name and slug are required'));
+router.post('/',
+  sanitizeBody(['name', 'slug', 'location', 'tax_situation']),
+  validateRequired(['name', 'slug']),
+  async (req, res) => {
+    try {
+      const { name, slug, location, tax_situation } = req.body;
+
+      // Validate slug format (URL-friendly)
+      const slugRegex = /^[a-z0-9-]+$/;
+      if (!slugRegex.test(slug)) {
+        return res.status(400).json(error('Slug must contain only lowercase letters, numbers, and hyphens'));
+      }
+
+      const result = await db.run(
+        'INSERT INTO families (name, slug, location, tax_situation) VALUES (?, ?, ?, ?)',
+        [name, slug, location || null, tax_situation || null]
+      );
+      res.json(success({ id: result.lastID, name, slug }));
+    } catch (err) {
+      if (err.message.includes('UNIQUE constraint failed')) {
+        return res.status(409).json(error('Family slug already exists'));
+      }
+      res.status(500).json(error(sanitizeError(err)));
     }
-    const result = await db.run('INSERT INTO families (name, slug) VALUES (?, ?)', [name, slug]);
-    res.json(success({ id: result.lastID, name, slug }));
-  } catch (err) {
-    res.status(500).json(error(err.message));
   }
-});
+);
 
 router.get('/:slug', async (req, res) => {
   try {
@@ -41,7 +56,7 @@ router.get('/:slug', async (req, res) => {
 
     res.json(success(family));
   } catch (err) {
-    res.status(500).json(error(err.message));
+    res.status(500).json(error(sanitizeError(err)));
   }
 });
 

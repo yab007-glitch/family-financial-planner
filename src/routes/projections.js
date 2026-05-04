@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router({ mergeParams: true });
 const { success, error } = require('../utils/response');
 const { validateFamily } = require('../middleware/familySlug');
+const { sanitizeBody, validateNumber, sanitizeError } = require('../middleware/security');
 
 function compoundInterestProjection(principal, monthlyContribution, annualRate, years) {
   const monthlyRate = annualRate / 12 / 100;
@@ -24,22 +25,29 @@ function compoundInterestProjection(principal, monthlyContribution, annualRate, 
 
 router.use(validateFamily);
 
-router.post('/', (req, res) => {
-  try {
-    const { principal, monthly_contribution, annual_rate, years } = req.body;
-    if (!years || !annual_rate) {
-      return res.status(400).json(error('Years and annual_rate are required'));
+router.post('/',
+  sanitizeBody(['principal', 'monthly_contribution', 'annual_rate', 'years']),
+  validateNumber('principal', 0, 1000000000),
+  validateNumber('monthly_contribution', 0, 1000000),
+  validateNumber('annual_rate', 0, 50),
+  validateNumber('years', 1, 100),
+  (req, res) => {
+    try {
+      const { principal, monthly_contribution, annual_rate, years } = req.body;
+      if (!years || !annual_rate) {
+        return res.status(400).json(error('Years and annual_rate are required'));
+      }
+      const schedule = compoundInterestProjection(
+        principal || 0,
+        monthly_contribution || 0,
+        annual_rate,
+        years
+      );
+      res.json(success({ schedule }));
+    } catch (err) {
+      res.status(500).json(error(sanitizeError(err)));
     }
-    const schedule = compoundInterestProjection(
-      principal || 0,
-      monthly_contribution || 0,
-      annual_rate,
-      years
-    );
-    res.json(success({ schedule }));
-  } catch (err) {
-    res.status(500).json(error(err.message));
   }
-});
+);
 
 module.exports = router;

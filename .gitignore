@@ -1,7 +1,32 @@
 node_modules/
+
+# Database files
 planner.db
 planner.db-journal
 planner.db-shm
 planner.db-wal
-server.log
+*.sqlite
+*.sqlite3
+
+# Environment variables
 .env
+.env.local
+.env.*.local
+
+# Logs
+server.log
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+coverage/
