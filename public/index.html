@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Family Financial Planner</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div id="app">
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h1>🏠 Planner</h1>
+        <span class="family-name" id="family-name">Select Family</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#/dashboard" data-page="dashboard">📊 Dashboard</a></li>
+        <li><a href="#/family" data-page="family">👨‍👩‍👧‍👦 Family</a></li>
+        <li><a href="#/finances" data-page="finances">💰 Finances</a></li>
+        <li><a href="#/budget" data-page="budget">📋 Budget</a></li>
+        <li><a href="#/tax-planner" data-page="tax-planner">📊 Tax Planner</a></li>
+        <li><a href="#/mortgage-invest" data-page="mortgage-invest">🏠 Mortgage vs Invest</a></li>
+        <li><a href="#/retirement-sim" data-page="retirement-sim">👴 Retirement Sim</a></li>
+        <li><a href="#/monte-carlo" data-page="monte-carlo">🎲 Monte Carlo</a></li>
+        <li><a href="#/fhsa" data-page="fhsa">🏡 FHSA Checker</a></li>
+        <li><a href="#/export" data-page="export">📄 Export Report</a></li>
+        <li><a href="#/goals" data-page="goals">🎯 Goals</a></li>
+        <li><a href="#/insurance" data-page="insurance">🛡️ Insurance</a></li>
+        <li><a href="#/actions" data-page="actions">✅ Actions</a></li>
+        <li><a href="#/milestones" data-page="milestones">🏁 Milestones</a></li>
+      </ul>
+      <div class="sidebar-footer no-print">
+        <button id="btn-pdf" class="btn-secondary">📄 Export PDF</button>
+      </div>
+    </nav>
+    <main class="main-content">
+      <div id="page-content"></div>
+    </main>
+  </div>
+  <script src="/js/api.js"></script>
+  <script src="/js/router.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

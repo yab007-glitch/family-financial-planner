@@ -1,0 +1,63 @@
+<div>
+  <div class="card" style="display:flex;justify-content:space-between;align-items:center">
+    <h2>✅ Action Plan</h2>
+    <button class="btn" onclick="openAddActionModal()">+ Add Action</button>
+  </div>
+
+  <div class="card">
+    <div class="table-container">
+      <table>
+        <thead><tr><th><input type="checkbox" id="check-all"></th><th>Phase</th><th>Description</th><th>Due Date</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody id="actions-table"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+async function initActions(slug) {
+  renderActions(slug);
+}
+
+async function renderActions(slug) {
+  const res = await API.get(`/api/families/${slug}/actions`);
+  const tbody = document.getElementById('actions-table');
+  if (!res.data?.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No action items yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = res.data.map(a => `
+    <tr>
+      <td><input type="checkbox" ${a.status === 'Done' ? 'checked' : ''} onchange="toggleAction(${a.id}, this.checked)"></td>
+      <td>${a.phase || '-'}</td>
+      <td><strong>${a.description}</strong></td>
+      <td>${a.due_date || '-'}</td>
+      <td>${statusBadge(a.status)}</td>
+      <td>${a.notes || '-'}</td>
+    </tr>
+  `).join('');
+}
+
+async function toggleAction(id, done) {
+  await API.put(`/api/families/${Router.familySlug}/actions/${id}`, { status: done ? 'Done' : 'Pending' });
+  renderActions(Router.familySlug);
+}
+
+function openAddActionModal() {
+  const html = `
+    <div class="form-group"><label>Phase</label><input id="a-phase" placeholder="Week 1, Month 1, etc"></div>
+    <div class="form-group"><label>Description</label><input id="a-desc" required></div>
+    <div class="form-group"><label>Due Date</label><input id="a-due" type="date"></div>
+    <div class="form-group"><label>Notes</label><textarea id="a-notes" rows="2"></textarea></div>
+  `;
+  openModal('Add Action Item', html, async () => {
+    await API.post(`/api/families/${Router.familySlug}/actions`, {
+      phase: document.getElementById('a-phase').value,
+      description: document.getElementById('a-desc').value,
+      due_date: document.getElementById('a-due').value,
+      notes: document.getElementById('a-notes').value
+    });
+    renderActions(Router.familySlug);
+  });
+}
+</script>

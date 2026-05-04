@@ -1,0 +1,21 @@
+{
+  "name": "family-financial-planner",
+  "version": "1.0.0",
+  "description": "Micro SaaS for family financial planning",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "PORT=4000 node src/server.js",
+    "dev": "PORT=4000 nodemon src/server.js",
+    "migrate": "node src/db/migrate.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "express-session": "^1.19.0",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

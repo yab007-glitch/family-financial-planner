@@ -1,0 +1,111 @@
+<div>
+  <div class="card">
+    <h2>👴 Retirement Income Simulator</h2>
+    <p class="stat-label">Simulate your retirement from age 65 to 90. See RRSP→RRIF conversion, OAS/GIS clawbacks, CPP/QPP income, and tax drag year-by-year.</p>
+  </div>
+
+  <div class="card">
+    <h3>📋 Your Profile</h3>
+    <div class="grid" style="margin-top:16px">
+      <div class="form-group"><label>Current Age</label><input id="rs-age" type="number" value="38"></div>
+      <div class="form-group"><label>Retirement Age</label><input id="rs-retire" type="number" value="65"></div>
+      <div class="form-group"><label>Lifespan Estimate</label><input id="rs-life" type="number" value="90"></div>
+      <div class="form-group"><label>Projected RRSP at Retirement ($)</label><input id="rs-rrsp" type="number" value="500000"></div>
+      <div class="form-group"><label>Projected TFSA at Retirement ($)</label><input id="rs-tfsa" type="number" value="500000"></div>
+      <div class="form-group"><label>Non-Registered at Retirement ($)</label><input id="rs-nonreg" type="number" value="100000"></div>
+      <div class="form-group"><label>Desired Annual Income ($)</label><input id="rs-income" type="number" value="60000"></div>
+      <div class="form-group"><label>Spouse Annual Income ($)</label><input id="rs-spouse" type="number" value="0"></div>
+      <div class="form-group"><label>CPP Start Age</label><input id="rs-cpp" type="number" value="65"></div>
+      <div class="form-group"><label>Investment Return in Retirement (%)</label><input id="rs-return" type="number" step="0.1" value="5"></div>
+    </div>
+    <div style="margin-top:16px"><button class="btn" onclick="runRetirementSim()">🔁 Run Simulation</button></div>
+  </div>
+
+  <div id="rs-results" style="display:none">
+    <div class="grid">
+      <div class="card"><div class="stat-label">Total Tax in Retirement</div><div class="stat-value negative" id="rs-total-tax"></div></div>
+      <div class="card"><div class="stat-label">Total OAS Received</div><div class="stat-value positive" id="rs-total-oas"></div></div>
+      <div class="card"><div class="stat-label">Total GIS Received</div><div class="stat-value positive" id="rs-total-gis"></div></div>
+      <div class="card"><div class="stat-label">Total CPP/QPP</div><div class="stat-value positive" id="rs-total-cpp"></div></div>
+      <div class="card"><div class="stat-label">Estate Value</div><div class="stat-value" id="rs-estate"></div></div>
+      <div class="card"><div class="stat-label">Years with Shortfall</div><div class="stat-value" id="rs-shortfall"></div></div>
+    </div>
+
+    <div class="card">
+      <h3>💡 Key Insights</h3>
+      <div id="rs-insights" style="margin-top:16px"></div>
+    </div>
+
+    <div class="card">
+      <h3>📅 Year-by-Year Summary</h3>
+      <div class="table-container" style="margin-top:16px">
+        <table>
+          <thead><tr><th>Age</th><th>Target Income</th><th>CPP</th><th>OAS</th><th>RRSP Used</th><th>TFSA Used</th><th>Tax</th><th>Shortfall</th><th>Remaining</th></tr></thead>
+          <tbody id="rs-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function initRetirementSim(slug) {
+  runRetirementSim();
+}
+
+async function runRetirementSim() {
+  const params = {
+    currentAge: parseInt(document.getElementById('rs-age').value) || 38,
+    retirementAge: parseInt(document.getElementById('rs-retire').value) || 65,
+    lifespan: parseInt(document.getElementById('rs-life').value) || 90,
+    rrspBalanceAtRetirement: parseFloat(document.getElementById('rs-rrsp').value) || 0,
+    tfsaBalanceAtRetirement: parseFloat(document.getElementById('rs-tfsa').value) || 0,
+    nonRegisteredBalance: parseFloat(document.getElementById('rs-nonreg').value) || 0,
+    desiredIncome: parseFloat(document.getElementById('rs-income').value) || 60000,
+    spouseIncome: parseFloat(document.getElementById('rs-spouse').value) || 0,
+    cppStartAge: parseInt(document.getElementById('rs-cpp').value) || 65,
+    investmentReturn: parseFloat(document.getElementById('rs-return').value) || 5
+  };
+
+  const res = await API.post(`/api/families/${Router.familySlug}/tools/retirement-simulate`, params);
+  if (!res.success) { alert(res.error); return; }
+  const d = res.data;
+
+  document.getElementById('rs-results').style.display = 'block';
+  document.getElementById('rs-total-tax').textContent = formatCurrency(d.summary.totalTaxPaid);
+  document.getElementById('rs-total-oas').textContent = formatCurrency(d.summary.totalOASReceived);
+  document.getElementById('rs-total-gis').textContent = formatCurrency(d.summary.totalGISReceived);
+  document.getElementById('rs-total-cpp').textContent = formatCurrency(d.summary.totalCPPReceived);
+  document.getElementById('rs-estate').textContent = formatCurrency(d.summary.estateValue);
+  document.getElementById('rs-shortfall').textContent = d.summary.yearsWithShortfall;
+  document.getElementById('rs-shortfall').className = 'stat-value ' + (d.summary.yearsWithShortfall > 0 ? 'negative' : 'positive');
+
+  // Insights
+  document.getElementById('rs-insights').innerHTML = d.keyInsights.map(i => `
+    <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+      <span>${i.severity === 'high' ? '⚠️' : i.severity === 'medium' ? '🔍' : i.severity === 'positive' ? '✅' : '💡'}</span>
+      <div>
+        <strong>${i.title}</strong><br>
+        <span style="color:var(--text-light);font-size:0.9rem">${i.description}</span>
+        ${i.action ? `<br><span style="color:var(--primary);font-size:0.85rem">→ ${i.action}</span>` : ''}
+      </div>
+    </div>
+  `).join('');
+
+  // Table
+  const tbody = document.getElementById('rs-table');
+  tbody.innerHTML = d.years.filter((_, i) => i % 5 === 0 || i === d.years.length - 1).map(y => `
+    <tr>
+      <td><strong>${y.age}</strong></td>
+      <td>${formatCurrency(y.targetIncome)}</td>
+      <td>${formatCurrency(y.cppReceived)}</td>
+      <td>${formatCurrency(y.oasReceived)}</td>
+      <td>${formatCurrency(y.rrspWithdrawal)}</td>
+      <td>${formatCurrency(y.tfsaWithdrawal)}</td>
+      <td>${formatCurrency(y.taxPaid)}</td>
+      <td>${y.incomeShortfall > 0 ? `<span class="badge badge-danger">${formatCurrency(y.incomeShortfall)}</span>` : '-'}</td>
+      <td>${formatCurrency(y.totalAssets)}</td>
+    </tr>
+  `).join('');
+}
+</script>

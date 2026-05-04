@@ -1,0 +1,102 @@
+<div>
+  <div class="card" style="display:flex;justify-content:space-between;align-items:center">
+    <h2>🎯 Financial Goals</h2>
+    <button class="btn" onclick="openAddGoalModal()">+ Add Goal</button>
+  </div>
+
+  <div class="card">
+    <h3>Investment Projection</h3>
+    <div class="grid" style="margin-top:16px">
+      <div class="form-group"><label>Principal</label><input id="proj-principal" type="number" value="78000" onchange="runProjection()"></div>
+      <div class="form-group"><label>Monthly Contribution</label><input id="proj-monthly" type="number" value="1000" onchange="runProjection()"></div>
+      <div class="form-group"><label>Rate (%)</label><input id="proj-rate" type="number" value="7" step="0.1" onchange="runProjection()"></div>
+      <div class="form-group"><label>Years</label><input id="proj-years" type="number" value="27" onchange="runProjection()"></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="stat-label">Projected Value</div>
+      <div class="stat-value" id="proj-result"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Timeframe</th><th>Priority</th><th>Description</th><th>Target</th><th>Current</th><th>Deadline</th><th>Status</th></tr></thead>
+        <tbody id="goals-table"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+async function initGoals(slug) {
+  renderGoals(slug);
+  runProjection();
+}
+
+async function renderGoals(slug) {
+  const res = await API.get(`/api/families/${slug}/goals`);
+  const tbody = document.getElementById('goals-table');
+  if (!res.data?.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No goals yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = res.data.map(g => {
+    const pct = g.target_amount > 0 ? Math.min(100, (g.current_amount / g.target_amount) * 100) : 0;
+    return `
+    <tr>
+      <td>${g.timeframe || '-'}</td>
+      <td>${g.priority || '-'}</td>
+      <td><strong>${g.description}</strong></td>
+      <td>${formatCurrency(g.target_amount)}</td>
+      <td>
+        ${formatCurrency(g.current_amount)}
+        <div class="progress-bar" style="width:120px"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </td>
+      <td>${g.deadline || '-'}</td>
+      <td>${statusBadge(g.status)}</td>
+    </tr>
+    `;
+  }).join('');
+}
+
+async function runProjection() {
+  const principal = parseFloat(document.getElementById('proj-principal').value) || 0;
+  const monthly = parseFloat(document.getElementById('proj-monthly').value) || 0;
+  const rate = parseFloat(document.getElementById('proj-rate').value) || 0;
+  const years = parseInt(document.getElementById('proj-years').value) || 0;
+
+  const res = await API.post(`/api/families/${Router.familySlug}/project`, {
+    principal, monthly_contribution: monthly, annual_rate: rate, years
+  });
+
+  if (res.success && res.data.schedule?.length) {
+    const last = res.data.schedule[res.data.schedule.length - 1];
+    document.getElementById('proj-result').textContent = formatCurrency(last.balance);
+  } else {
+    document.getElementById('proj-result').textContent = '$0';
+  }
+}
+
+function openAddGoalModal() {
+  const html = `
+    <div class="form-group"><label>Timeframe</label>
+      <select id="g-timeframe"><option>Short-Term</option><option>Medium-Term</option><option>Long-Term</option></select>
+    </div>
+    <div class="form-group"><label>Priority</label><input id="g-priority" type="number" value="1"></div>
+    <div class="form-group"><label>Description</label><input id="g-desc" required></div>
+    <div class="form-group"><label>Target Amount</label><input id="g-target" type="number" value="0"></div>
+    <div class="form-group"><label>Deadline</label><input id="g-deadline" type="date"></div>
+  `;
+  openModal('Add Goal', html, async () => {
+    await API.post(`/api/families/${Router.familySlug}/goals`, {
+      timeframe: document.getElementById('g-timeframe').value,
+      priority: parseInt(document.getElementById('g-priority').value),
+      description: document.getElementById('g-desc').value,
+      target_amount: parseFloat(document.getElementById('g-target').value),
+      deadline: document.getElementById('g-deadline').value
+    });
+    renderGoals(Router.familySlug);
+  });
+}
+</script>

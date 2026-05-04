@@ -1,0 +1,174 @@
+<div>
+  <div class="card" style="display:flex;justify-content:space-between;align-items:center">
+    <h2>💰 Financial Status</h2>
+    <button class="btn" onclick="openAddAccountModal()">+ Add Account</button>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="stat-label">Net Worth</div>
+      <div class="stat-value" id="fin-net-worth">$0</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Total Assets</div>
+      <div class="stat-value positive" id="fin-assets">$0</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Total Debts</div>
+      <div class="stat-value negative" id="fin-debts">$0</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📈 Accounts</h2>
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Type</th><th>Institution</th><th>Balance</th><th>Room</th><th>Notes</th></tr></thead>
+        <tbody id="accounts-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h2>📉 Liabilities</h2>
+      <button class="btn" onclick="openAddDebtModal()">+ Add Debt</button>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Type</th><th>Balance</th><th>Rate</th><th>Monthly</th><th>Notes</th></tr></thead>
+        <tbody id="debts-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h2>🛡️ Insurance</h2>
+      <button class="btn" onclick="openAddInsuranceModal()">+ Add Insurance</button>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Type</th><th>Provider</th><th>Coverage</th><th>Premium</th><th>Status</th></tr></thead>
+        <tbody id="insurance-table"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+async function initFinances(slug) {
+  renderFinances(slug);
+}
+
+async function renderFinances(slug) {
+  const [family, summary] = await Promise.all([
+    API.get(`/api/families/${slug}`),
+    API.get(`/api/families/${slug}/summary`)
+  ]);
+
+  const nwEl = document.getElementById('fin-net-worth');
+  nwEl.textContent = formatCurrency(summary.data.netWorth);
+  nwEl.className = 'stat-value ' + (summary.data.netWorth >= 0 ? 'positive' : 'negative');
+  document.getElementById('fin-assets').textContent = formatCurrency(summary.data.assets);
+  document.getElementById('fin-debts').textContent = formatCurrency(summary.data.liabilities);
+
+  // Accounts
+  const accTbody = document.getElementById('accounts-table');
+  if (family.data.accounts?.length) {
+    accTbody.innerHTML = family.data.accounts.map(a => `
+      <tr><td><strong>${a.type}</strong></td><td>${a.institution || '-'}</td>
+      <td>${formatCurrency(a.balance)}</td><td>${a.contribution_room || '-'}</td><td>${a.notes || '-'}</td></tr>
+    `).join('');
+  } else {
+    accTbody.innerHTML = '<tr><td colspan="5" class="empty-state">No accounts yet</td></tr>';
+  }
+
+  // Debts
+  const debtTbody = document.getElementById('debts-table');
+  if (family.data.debts?.length) {
+    debtTbody.innerHTML = family.data.debts.map(d => `
+      <tr><td><strong>${d.type}</strong></td><td>${formatCurrency(d.balance)}</td>
+      <td>${d.interest_rate ? d.interest_rate + '%' : '-'}</td>
+      <td>${d.monthly_payment ? formatCurrency(d.monthly_payment) : '-'}</td>
+      <td>${d.notes || '-'}</td></tr>
+    `).join('');
+  } else {
+    debtTbody.innerHTML = '<tr><td colspan="5" class="empty-state">No debts yet</td></tr>';
+  }
+
+  // Insurance
+  const insTbody = document.getElementById('insurance-table');
+  if (family.data.insurance?.length) {
+    insTbody.innerHTML = family.data.insurance.map(i => `
+      <tr><td><strong>${i.type}</strong></td><td>${i.provider || '-'}</td>
+      <td>${i.coverage || '-'}</td><td>${i.premium || '-'}</td>
+      <td>${statusBadge(i.status)}</td></tr>
+    `).join('');
+  } else {
+    insTbody.innerHTML = '<tr><td colspan="5" class="empty-state">No insurance entries</td></tr>';
+  }
+}
+
+function openAddAccountModal() {
+  const html = `
+    <div class="form-group"><label>Type</label><input id="a-type" placeholder="TFSA, RRSP, etc" required></div>
+    <div class="form-group"><label>Institution</label><input id="a-institution"></div>
+    <div class="form-group"><label>Balance</label><input id="a-balance" type="number" value="0"></div>
+    <div class="form-group"><label>Contribution Room</label><input id="a-room" placeholder="$0 / $78,000"></div>
+    <div class="form-group"><label>Notes</label><textarea id="a-notes" rows="2"></textarea></div>
+  `;
+  openModal('Add Account', html, async () => {
+    await API.post(`/api/families/${Router.familySlug}/accounts`, {
+      type: document.getElementById('a-type').value,
+      institution: document.getElementById('a-institution').value,
+      balance: parseFloat(document.getElementById('a-balance').value),
+      contribution_room: document.getElementById('a-room').value,
+      notes: document.getElementById('a-notes').value
+    });
+    renderFinances(Router.familySlug);
+  });
+}
+
+function openAddDebtModal() {
+  const html = `
+    <div class="form-group"><label>Type</label><input id="d-type" placeholder="Mortgage, Car Loan, etc" required></div>
+    <div class="form-group"><label>Balance</label><input id="d-balance" type="number" value="0"></div>
+    <div class="form-group"><label>Interest Rate (%)</label><input id="d-rate" type="number" step="0.01"></div>
+    <div class="form-group"><label>Monthly Payment</label><input id="d-payment" type="number"></div>
+    <div class="form-group"><label>Notes</label><textarea id="d-notes" rows="2"></textarea></div>
+  `;
+  openModal('Add Debt', html, async () => {
+    await API.post(`/api/families/${Router.familySlug}/debts`, {
+      type: document.getElementById('d-type').value,
+      balance: parseFloat(document.getElementById('d-balance').value),
+      interest_rate: parseFloat(document.getElementById('d-rate').value) || null,
+      monthly_payment: parseFloat(document.getElementById('d-payment').value) || null,
+      notes: document.getElementById('d-notes').value
+    });
+    renderFinances(Router.familySlug);
+  });
+}
+
+function openAddInsuranceModal() {
+  const html = `
+    <div class="form-group"><label>Type</label><input id="i-type" required></div>
+    <div class="form-group"><label>Provider</label><input id="i-provider"></div>
+    <div class="form-group"><label>Coverage</label><input id="i-coverage"></div>
+    <div class="form-group"><label>Premium</label><input id="i-premium"></div>
+    <div class="form-group"><label>Status</label>
+      <select id="i-status"><option>Active</option><option>Gap identified</option><option>Pending</option><option>Declined</option></select>
+    </div>
+  `;
+  openModal('Add Insurance', html, async () => {
+    await API.post(`/api/families/${Router.familySlug}/insurance`, {
+      type: document.getElementById('i-type').value,
+      provider: document.getElementById('i-provider').value,
+      coverage: document.getElementById('i-coverage').value,
+      premium: document.getElementById('i-premium').value,
+      status: document.getElementById('i-status').value
+    });
+    renderFinances(Router.familySlug);
+  });
+}
+</script>

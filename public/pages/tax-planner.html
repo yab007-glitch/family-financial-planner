@@ -1,0 +1,175 @@
+<div>
+  <div class="card">
+    <h2>📊 Canadian Tax & Wealth Optimizer</h2>
+    <p class="stat-label">Built for Quebec residents. Calculates federal + provincial taxes, recommends optimal TFSA/RRSP/FHSA/RESP strategy.</p>
+  </div>
+
+  <div class="card">
+    <h3>🧮 Your Situation</h3>
+    <div class="grid" style="margin-top:16px">
+      <div class="form-group">
+        <label>Gross Household Income ($)</label>
+        <input id="tp-income" type="number" value="80000" onchange="calculateTax()">
+      </div>
+      <div class="form-group">
+        <label>Your Age</label>
+        <input id="tp-age" type="number" value="38" onchange="calculateTax()">
+      </div>
+      <div class="form-group">
+        <label>Number of Children</label>
+        <input id="tp-children" type="number" value="0" onchange="calculateTax()">
+      </div>
+      <div class="form-group">
+        <label>Available Cash to Save ($/year)</label>
+        <input id="tp-cash" type="number" value="20000" onchange="calculateTax()">
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <button class="btn" onclick="calculateTax()">🔁 Recalculate</button>
+    </div>
+  </div>
+
+  <div id="tax-results" style="display:none">
+    <!-- Tax Breakdown -->
+    <div class="card">
+      <h3>💰 Tax Breakdown (Quebec Resident)</h3>
+      <div class="grid" style="margin-top:16px">
+        <div class="card" style="background:#f8fafc">
+          <div class="stat-label">Gross Income</div>
+          <div class="stat-value" id="tp-gross">$0</div>
+        </div>
+        <div class="card" style="background:#f8fafc">
+          <div class="stat-label">Federal Tax</div>
+          <div class="stat-value negative" id="tp-federal-tax">$0</div>
+        </div>
+        <div class="card" style="background:#f8fafc">
+          <div class="stat-label">Quebec Tax</div>
+          <div class="stat-value negative" id="tp-quebec-tax">$0</div>
+        </div>
+        <div class="card" style="background:#f8fafc">
+          <div class="stat-label">Payroll Deductions</div>
+          <div class="stat-value negative" id="tp-payroll">$0</div>
+        </div>
+        <div class="card" style="background:#f8fafc">
+          <div class="stat-label">Total Tax</div>
+          <div class="stat-value negative" id="tp-total-tax">$0</div>
+        </div>
+        <div class="card" style="background:#f8fafc">
+          <div class="stat-label">After-Tax Income</div>
+          <div class="stat-value positive" id="tp-after-tax">$0</div>
+        </div>
+        <div class="card" style="background:#f8fafc">
+          <div class="stat-label">Average Tax Rate</div>
+          <div class="stat-value" id="tp-avg-rate">0%</div>
+        </div>
+        <div class="card" style="background:#f8fafc">
+          <div class="stat-label">Marginal Tax Rate</div>
+          <div class="stat-value" id="tp-marginal">0%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wealth Strategy -->
+    <div class="card">
+      <h3>🎯 Optimal Wealth Building Strategy</h3>
+      <div id="tp-strategy-cards" style="margin-top:16px"></div>
+    </div>
+
+    <!-- Year One Action Plan -->
+    <div class="card">
+      <h3>✅ Year One Action Plan</h3>
+      <div id="tp-year-one" style="margin-top:16px"></div>
+    </div>
+
+    <!-- Gold Rules -->
+    <div class="card">
+      <h3>🏆 The 10 Wealth Building Rules</h3>
+      <div id="tp-rules" style="margin-top:16px"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function initTaxPlanner(slug) {
+  calculateTax();
+}
+
+async function calculateTax() {
+  const income = parseFloat(document.getElementById('tp-income').value) || 0;
+  const age = parseInt(document.getElementById('tp-age').value) || 0;
+  const numChildren = parseInt(document.getElementById('tp-children').value) || 0;
+  const availableCash = parseFloat(document.getElementById('tp-cash').value) || 0;
+
+  document.getElementById('tax-results').style.display = 'block';
+
+  // 1. Calculate tax breakdown
+  const taxRes = await API.post(`/api/families/${Router.familySlug}/tax/calculate`, { income });
+  const tax = taxRes.data;
+
+  document.getElementById('tp-gross').textContent = formatCurrency(tax.grossIncome);
+  document.getElementById('tp-federal-tax').textContent = formatCurrency(tax.federalTax);
+  document.getElementById('tp-quebec-tax').textContent = formatCurrency(tax.quebecTax);
+  document.getElementById('tp-payroll').textContent = formatCurrency(tax.payrollDeductions.total);
+  document.getElementById('tp-total-tax').textContent = formatCurrency(tax.totalTax);
+  document.getElementById('tp-after-tax').textContent = formatCurrency(tax.afterTaxIncome);
+  document.getElementById('tp-avg-rate').textContent = tax.averageTaxRate + '%';
+  document.getElementById('tp-marginal').textContent = (tax.marginalTaxRate * 100).toFixed(1) + '%';
+
+  // 2. Get optimal strategy
+  const stratRes = await API.post(`/api/families/${Router.familySlug}/tax/strategy`, {
+    income, age, num_children: numChildren, available_cash: availableCash
+  });
+  const strategy = stratRes.data;
+
+  // Render strategy cards
+  const cardsContainer = document.getElementById('tp-strategy-cards');
+  cardsContainer.innerHTML = strategy.strategy.map((s, i) => {
+    const step = strategy.year_one_plan?.find(p => p.priority === s.priority);
+    const amount = step?.allocation;
+    const benefit = step?.benefit;
+
+    return `
+      <div class="card" style="margin-bottom:12px; border-left:4px solid ${i < 2 ? '#16a34a' : i < 4 ? '#2563eb' : '#64748b'}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:1.2rem;font-weight:700">${s.priority}. ${s.account}</span>
+          ${amount ? `<span class="stat-value positive" style="font-size:1.1rem">${formatCurrency(amount)}</span>` : ''}
+        </div>
+        <p style="margin-top:8px;color:var(--text-light)">${s.reason}</p>
+        ${benefit ? `<div class="badge badge-success" style="margin-top:8px">${benefit}</div>` : ''}
+        ${amount && step?.remainingAfter >= 0 ? `<div class="stat-label" style="margin-top:8px">Remaining cash after this step: ${formatCurrency(step.remainingAfter)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  // Render year one plan
+  const yearOneContainer = document.getElementById('tp-year-one');
+  if (strategy.year_one_plan?.length) {
+    yearOneContainer.innerHTML = `
+      <table>
+        <thead><tr><th>Priority</th><th>Account</th><th>Allocation</th><th>Benefit</th><th>Remaining</th></tr></thead>
+        <tbody>
+          ${strategy.year_one_plan.map(p => `
+            <tr>
+              <td>${p.priority}</td>
+              <td><strong>${p.account}</strong>${p.note ? ` <span class="stat-label">(${p.note})</span>` : ''}</td>
+              <td>${formatCurrency(p.allocation || 0)}</td>
+              <td>${p.benefit || '-'}</td>
+              <td>${p.remainingAfter !== undefined ? formatCurrency(p.remainingAfter) : '-'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } else {
+    yearOneContainer.innerHTML = '<div class="empty-state"><p>Enter your available cash to see a detailed action plan.</p></div>';
+  }
+
+  // Render rules
+  document.getElementById('tp-rules').innerHTML = strategy.rules.map(r => `
+    <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:1.2rem">➡️</span>
+      <span>${r}</span>
+    </div>
+  `).join('');
+}
+</script>

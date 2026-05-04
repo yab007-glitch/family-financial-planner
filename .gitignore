@@ -1,0 +1,7 @@
+node_modules/
+planner.db
+planner.db-journal
+planner.db-shm
+planner.db-wal
+server.log
+.env
