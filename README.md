@@ -38,6 +38,58 @@ npm start
 
 The app will be available at: **http://localhost:4000**
 
+## 🚂 Deploy on Railway (Recommended)
+
+Railway provides free hosting with automatic deploys from GitHub.
+
+### 1. Fork / push to GitHub
+Ensure your repo is at `github.com/yab007-glitch/family-financial-planner` (or your own fork).
+
+### 2. Create Railway project
+```bash
+# In the project directory
+railway login      # Already done? Skip.
+railway init       # Create new project
+railway up         # First deploy
+```
+
+### 3. Configure Environment Variables
+In the Railway dashboard (or CLI), set:
+
+| Variable | Value | Required |
+|----------|-------|----------|
+| `NODE_ENV` | `production` | ✅ |
+| `JWT_SECRET` | Strong random string (≥32 chars) | ✅ |
+| `DB_PATH` | `/app/data/planner.db` | ✅ |
+| `COOKIE_SECURE` | `true` | ✅ |
+| `CORS_ORIGIN` | `https://your-railway-domain.up.railway.app` | Optional |
+
+Generate a secure JWT_SECRET:
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+### 4. Add Persistent Volume (Critical for SQLite)
+SQLite needs a persistent volume or data will be lost on every deploy.
+
+1. Go to your Railway project dashboard
+2. Click your service → **Volumes** tab
+3. **Add Volume**
+   - Mount Path: `/app/data`
+   - Size: 1 GB (or more)
+4. Redeploy: `railway up`
+
+The app will automatically create `planner.db` inside `/app/data` on first migration.
+
+### 5. Verify Deploy
+```bash
+curl https://your-railway-domain.up.railway.app/api/health
+```
+Expected: `{"success":true,"data":{"status":"healthy",...}}`
+
+### 🔄 Auto-Deploy
+Railway auto-deploys on every `git push` to `main`. No manual steps needed.
+
 ## 🧪 Run the Quality Gate
 
 ```bash
