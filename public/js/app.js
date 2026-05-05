@@ -11,7 +11,14 @@ const Toast = {
     el.className = `toast toast-${type}`;
     el.setAttribute('role', 'status');
     el.setAttribute('aria-live', 'polite');
-    el.innerHTML = `<span style="font-size:1.2rem">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span><span style="flex:1">${message}</span>`;
+    const icon = document.createElement('span');
+    icon.style.fontSize = '1.2rem';
+    icon.textContent = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+    const msg = document.createElement('span');
+    msg.style.flex = '1';
+    msg.textContent = message;
+    el.appendChild(icon);
+    el.appendChild(msg);
     this.container.appendChild(el);
     setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 300); }, duration);
   }
