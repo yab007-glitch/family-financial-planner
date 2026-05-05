@@ -545,14 +545,14 @@ function appShell() {
     },
     openRetirementCalc() {
       this.toolModalResult = null;
-      this.openToolModal('Retirement Simulation', [
+      this.openToolModal('Retirement Readiness', [
         { key: 'currentAge', label: 'Current Age', type: 'number', default: 35 },
         { key: 'desiredRetirementAge', label: 'Retirement Age', type: 'number', default: 65 },
         { key: 'currentSavings', label: 'Current Savings', type: 'number', default: 50000 },
         { key: 'monthlyContribution', label: 'Monthly Contribution', type: 'number', default: 500 },
         { key: 'expectedReturn', label: 'Expected Return %', type: 'number', default: 7 }
       ], async (body) => {
-        const res = await API.post(`/api/families/${this.familySlug}/tools/retirement-simulate`, body);
+        const res = await API.post(`/api/families/${this.familySlug}/tools/retirement-readiness`, body);
         return res;
       });
     },
