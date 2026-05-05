@@ -20,7 +20,47 @@ import taxRouter from './routes/tax';
 import toolsRouter from './routes/tools';
 import { createCrudRouter } from './routes/crudRouter';
 
+import { healthCheck, closeDb } from './db/database';
+
 const app = express();
+let server: ReturnType<typeof app.listen> | null = null;
+
+// Graceful shutdown
+function gracefulShutdown(signal: string) {
+    console.log(`\n${signal} received. Shutting down gracefully...`);
+    if (server) {
+        server.close(async () => {
+            console.log('HTTP server closed');
+            try {
+                await closeDb();
+                console.log('Database connection closed');
+                process.exit(0);
+            } catch (err) {
+                console.error('Error closing database:', err);
+                process.exit(1);
+            }
+        });
+        // Force exit after 10s if hanging
+        setTimeout(() => {
+            console.error('Forced shutdown after timeout');
+            process.exit(1);
+        }, 10000);
+    } else {
+        process.exit(0);
+    }
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+    gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled Rejection:', reason);
+});
 
 // Security headers
 app.use(helmet({
@@ -122,8 +162,14 @@ app.use('/api/families/:slug/project', authenticateToken, projectionsRouter);
 app.use('/api/families/:slug/tax', authenticateToken, taxRouter);
 app.use('/api/families/:slug/tools', authenticateToken, toolsRouter);
 
-app.get('/api/health', (_req: Request, res: Response) => {
-    res.json({ success: true, data: { status: 'healthy', version: '2.0.0', timestamp: new Date().toISOString() } });
+app.get('/api/health', async (_req: Request, res: Response) => {
+    const dbHealthy = await healthCheck();
+    const status = dbHealthy ? 'healthy' : 'degraded';
+    const code = dbHealthy ? 200 : 503;
+    res.status(code).json({
+        success: dbHealthy,
+        data: { status, version: '2.0.0', timestamp: new Date().toISOString(), database: dbHealthy ? 'connected' : 'unreachable' }
+    });
 });
 
 app.get('*', optionalAuth, (req: Request, res: Response) => {
@@ -137,9 +183,10 @@ app.use(errorHandler);
 
 if (require.main === module) {
     runMigrations().then(() => {
-        app.listen(CONFIG.PORT, () => {
+        server = app.listen(CONFIG.PORT, () => {
             console.log(`🏠 Family Financial Planner v2.0 running at http://localhost:${CONFIG.PORT}`);
-            console.log(`📊 API: http://localhost:${CONFIG.PORT}/api/health`);
+            console.log(`📊 API Health: http://localhost:${CONFIG.PORT}/api/health`);
+            console.log(`🌍 Environment: ${CONFIG.NODE_ENV}`);
         });
     }).catch((err) => {
         console.error('❌ Failed to start server:', err);

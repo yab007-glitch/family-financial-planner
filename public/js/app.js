@@ -9,11 +9,17 @@ const Toast = {
     if (!this.container) this.init();
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
     el.innerHTML = `<span style="font-size:1.2rem">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span><span style="flex:1">${message}</span>`;
     this.container.appendChild(el);
     setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 300); }, duration);
   }
 };
+
+/* Offline detection */
+window.addEventListener('offline', () => Toast.show('You are offline. Changes will sync when connection returns.', 'warning', 5000));
+window.addEventListener('online', () => Toast.show('Back online.', 'success', 2000));
 
 function formatCurrency(n) {
   if (n === undefined || n === null || isNaN(n)) return '$0';
@@ -21,6 +27,13 @@ function formatCurrency(n) {
 }
 
 function formatNumber(n) { return new Intl.NumberFormat('en-CA').format(Number(n || 0)); }
+
+function parseApiError(err) {
+  if (err?.response?.data?.error) return err.response.data.error;
+  if (err?.data?.error) return err.data.error;
+  if (err?.message) return err.message;
+  return 'Something went wrong. Please try again.';
+}
 
 const Charts = {
   instances: {},
@@ -67,7 +80,7 @@ function appShell() {
   return {
     isAuthenticated: false,
     authTab: 'login',
-    auth: { email: '', password: '', name: '', loading: false },
+    auth: { email: '', password: '', name: '', loading: false, errors: {} },
     theme: localStorage.getItem('theme') || 'dark',
     sidebarOpen: false,
     currentPage: 'dashboard',
@@ -80,6 +93,7 @@ function appShell() {
     summary: null,
     nextAction: null,
     dashboardSubheadline: 'Loading your personalized insights...',
+    isLoading: false,
 
     wizard: {
       familyName: '',
@@ -98,7 +112,52 @@ function appShell() {
 
     generatedPlan: { netWorth: null, debtFreeDate: '', nextAccount: '', nextAccountReason: '', emergencyTarget: 0, actions: [] },
 
+    /* === Auto-save wizard === */
+    saveWizardState() {
+      try {
+        localStorage.setItem('wizardDraft', JSON.stringify({ wizard: this.wizard, step: this.wizardStep }));
+      } catch { /* ignore quota errors */ }
+    },
+    restoreWizardState() {
+      try {
+        const draft = localStorage.getItem('wizardDraft');
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          if (parsed.wizard) this.wizard = parsed.wizard;
+          if (parsed.step) this.wizardStep = parsed.step;
+        }
+      } catch { /* ignore parse errors */ }
+    },
+    clearWizardDraft() {
+      localStorage.removeItem('wizardDraft');
+    },
+
+    /* === Validation === */
+    validateAuth() {
+      const errors = {};
+      if (!this.auth.email || !this.auth.email.includes('@')) errors.email = 'Valid email required';
+      if (!this.auth.password || this.auth.password.length < 6) errors.password = 'Password must be at least 6 characters';
+      if (this.authTab === 'register' && !this.auth.name?.trim()) errors.name = 'Name required';
+      this.auth.errors = errors;
+      return Object.keys(errors).length === 0;
+    },
+    validateWizardStep(step) {
+      const errors = [];
+      if (step === 2) {
+        if (!this.wizard.familyName.trim()) errors.push('Family name is required');
+        if (!this.wizard.members.some(m => m.name.trim())) errors.push('At least one member name is required');
+      }
+      if (step === 3) {
+        if (!this.wizard.accounts.some(a => a.type.trim())) errors.push('Add at least one account');
+      }
+      if (step === 4) {
+        if (!this.wizard.goals.some(g => g.selected)) errors.push('Select at least one goal');
+      }
+      return errors;
+    },
+
     async initApp() {
+      this.restoreWizardState();
       try {
         const me = await API.get('/api/auth/me');
         this.isAuthenticated = true;
@@ -142,25 +201,29 @@ function appShell() {
     },
 
     async login() {
+      if (!this.validateAuth()) return;
       this.auth.loading = true;
       try {
         const res = await API.post('/api/auth/login', { email: this.auth.email, password: this.auth.password });
         this.isAuthenticated = true;
         this.userName = res.data?.name || '';
+        this.clearWizardDraft();
         await this.initApp();
       } catch (err) {
-        Toast.show(err.message || 'Login failed', 'error');
+        Toast.show(parseApiError(err) || 'Login failed', 'error');
       } finally { this.auth.loading = false; }
     },
 
     async register() {
+      if (!this.validateAuth()) return;
       this.auth.loading = true;
       try {
         await API.post('/api/auth/register', { email: this.auth.email, password: this.auth.password, name: this.auth.name });
         Toast.show('Account created! Please sign in.', 'success');
         this.authTab = 'login';
+        this.auth.password = '';
       } catch (err) {
-        Toast.show(err.message || 'Registration failed', 'error');
+        Toast.show(parseApiError(err) || 'Registration failed', 'error');
       } finally { this.auth.loading = false; }
     },
 
@@ -172,10 +235,26 @@ function appShell() {
       window.location.reload();
     },
 
-    nextStep() { if (this.wizardStep < 5) this.wizardStep++; },
-    prevStep() { if (this.wizardStep > 1) this.wizardStep--; },
+    nextStep() {
+      const errors = this.validateWizardStep(this.wizardStep);
+      if (errors.length) {
+        Toast.show(errors[0], 'error');
+        return;
+      }
+      if (this.wizardStep < 5) {
+        this.wizardStep++;
+        this.saveWizardState();
+      }
+    },
+    prevStep() {
+      if (this.wizardStep > 1) {
+        this.wizardStep--;
+        this.saveWizardState();
+      }
+    },
 
     async saveFamily() {
+      this.isLoading = true;
       try {
         const slug = this.wizard.familyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         const res = await API.post('/api/families', { name: this.wizard.familyName, slug, location: this.wizard.province, tax_situation: '' });
@@ -184,27 +263,31 @@ function appShell() {
         this.familyName = this.wizard.familyName;
 
         for (const m of this.wizard.members) {
-          if (m.name) await API.post(`/api/families/${this.familySlug}/members`, { name: m.name, role: m.role, age: Number(m.age) || 0 });
+          if (m.name.trim()) await API.post(`/api/families/${this.familySlug}/members`, { name: m.name.trim(), role: m.role, age: Number(m.age) || 0 });
         }
         Toast.show('Family created!', 'success');
         this.nextStep();
-      } catch (err) { Toast.show(err.message || 'Failed to save family', 'error'); }
+      } catch (err) { Toast.show(parseApiError(err) || 'Failed to save family', 'error'); }
+      finally { this.isLoading = false; }
     },
 
     async saveSnapshot() {
+      this.isLoading = true;
       try {
         for (const a of this.wizard.accounts) {
-          if (a.type && a.balance !== '') await API.post(`/api/families/${this.familySlug}/accounts`, { type: a.type, institution: a.institution || '', balance: Number(a.balance) || 0 });
+          if (a.type.trim() && a.balance !== '') await API.post(`/api/families/${this.familySlug}/accounts`, { type: a.type.trim(), institution: a.institution?.trim() || '', balance: Number(a.balance) || 0 });
         }
         for (const d of this.wizard.debts) {
-          if (d.type && d.balance !== '') await API.post(`/api/families/${this.familySlug}/debts`, { type: d.type, balance: Number(d.balance) || 0, interest_rate: Number(d.interest_rate) || 0 });
+          if (d.type.trim() && d.balance !== '') await API.post(`/api/families/${this.familySlug}/debts`, { type: d.type.trim(), balance: Number(d.balance) || 0, interest_rate: Number(d.interest_rate) || 0 });
         }
         Toast.show('Snapshot saved!', 'success');
         this.nextStep();
-      } catch (err) { Toast.show(err.message || 'Failed to save snapshot', 'error'); }
+      } catch (err) { Toast.show(parseApiError(err) || 'Failed to save snapshot', 'error'); }
+      finally { this.isLoading = false; }
     },
 
     async saveGoals() {
+      this.isLoading = true;
       try {
         const selected = this.wizard.goals.filter(g => g.selected);
         for (const g of selected) {
@@ -223,7 +306,8 @@ function appShell() {
         await this.generatePlanData();
         Toast.show('Plan generated!', 'success');
         this.nextStep();
-      } catch (err) { Toast.show(err.message || 'Failed to save goals', 'error'); }
+      } catch (err) { Toast.show(parseApiError(err) || 'Failed to save goals', 'error'); }
+      finally { this.isLoading = false; }
     },
 
     async generatePlanData() {
@@ -362,6 +446,10 @@ function appShell() {
       this.toolModalInputs = [];
       this.toolModalRun = null;
       this.toolModalResult = null;
+      if (this._modalKeyHandler) {
+        document.removeEventListener('keydown', this._modalKeyHandler);
+        this._modalKeyHandler = null;
+      }
     },
 
     openToolModal(title, inputs, runner) {
@@ -370,9 +458,18 @@ function appShell() {
       this.toolModalRun = runner;
       this.toolModalResult = null;
       this.showToolModal = true;
+      setTimeout(() => {
+        const el = document.querySelector('.modal input, .modal button[type="submit"]');
+        if (el) el.focus();
+      }, 50);
+      this._modalKeyHandler = (e) => {
+        if (e.key === 'Escape') this.closeToolModal();
+      };
+      document.addEventListener('keydown', this._modalKeyHandler);
     },
 
     async submitToolModal() {
+      this.isLoading = true;
       const body = {};
       for (const input of this.toolModalInputs) {
         if (input.type === 'number') body[input.key] = Number(input.value) || 0;
@@ -382,7 +479,8 @@ function appShell() {
       try {
         const res = await this.toolModalRun(body);
         this.toolModalResult = res.data;
-      } catch (err) { Toast.show(err.message || 'Tool failed', 'error'); }
+      } catch (err) { Toast.show(parseApiError(err) || 'Tool failed', 'error'); }
+      finally { this.isLoading = false; }
     },
 
     async openAddAccount() {
@@ -412,14 +510,18 @@ function appShell() {
     },
 
     async updateGoal(g) {
+      this.isLoading = true;
       try {
         await API.put(`/api/families/${this.familySlug}/goals/${g.id}`, { description: g.description, target_amount: Number(g.target_amount) || 0, current_amount: Number(g.current_amount) || 0 });
         Toast.show('Goal updated', 'success');
-      } catch (err) { Toast.show(err.message, 'error'); }
+        this.loadFamily();
+      } catch (err) { Toast.show(parseApiError(err) || 'Failed to update goal', 'error'); }
+      finally { this.isLoading = false; }
     },
 
     finishWizard() {
       this.showWizard = false;
+      this.clearWizardDraft();
       this.go('dashboard');
     },
 

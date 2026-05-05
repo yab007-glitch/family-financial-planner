@@ -1,15 +1,47 @@
 import sqlite3 from 'sqlite3';
 import { CONFIG } from '../config';
 
-const db = new sqlite3.Database(CONFIG.DB_PATH, (err) => {
-    if (err)
-        console.error('Database connection error:', err);
-    else
-        console.log(`📁 SQLite connected: ${CONFIG.DB_PATH}`);
-});
+function connectWithRetry(retries = 3): sqlite3.Database {
+    const db = new sqlite3.Database(CONFIG.DB_PATH, (err) => {
+        if (err) {
+            console.error('Database connection error:', err);
+            if (retries > 0) {
+                console.log(`Retrying connection... (${retries} attempts left)`);
+                setTimeout(() => connectWithRetry(retries - 1), 1000);
+            }
+        } else {
+            console.log(`📁 SQLite connected: ${CONFIG.DB_PATH}`);
+        }
+    });
 
-db.run('PRAGMA journal_mode = WAL');
-db.run('PRAGMA foreign_keys = ON');
-db.run('PRAGMA busy_timeout = 5000');
+    db.run('PRAGMA journal_mode = WAL', (err) => {
+        if (err) console.error('WAL mode error:', err);
+        else console.log('✅ WAL mode enabled');
+    });
+    db.run('PRAGMA foreign_keys = ON');
+    db.run('PRAGMA busy_timeout = 5000');
+    db.run('PRAGMA synchronous = NORMAL');
+
+    return db;
+}
+
+const db = connectWithRetry();
+
+export function healthCheck(): Promise<boolean> {
+    return new Promise((resolve) => {
+        db.get('SELECT 1', (err) => {
+            resolve(!err);
+        });
+    });
+}
+
+export function closeDb(): Promise<void> {
+    return new Promise((resolve, reject) => {
+        db.close((err) => {
+            if (err) reject(err);
+            else resolve();
+        });
+    });
+}
 
 export default db;
