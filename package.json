@@ -15,7 +15,8 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "typecheck": "tsc --noEmit",
-    "ci": "npm run typecheck && npm run lint && npm run test:run"
+    "ci": "npm run typecheck && npm run lint && npm run test:run",
+    "backup": "cp planner.db planner.db.$(date +%Y%m%d_%H%M%S).bak && echo 'Backup created'"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
