@@ -4,7 +4,7 @@
   "description": "Canadian Family Financial Planner — Secure, multi-tenant micro-SaaS",
   "main": "dist/server.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/db/schema.sql dist/db/schema.sql 2>/dev/null || true && cp -r src/db/seeds dist/db/seeds 2>/dev/null || true",
     "start": "node dist/server.js",
     "dev": "concurrently \"tsc -w\" \"nodemon dist/server.js\"",
     "migrate": "node dist/db/migrate.js",
