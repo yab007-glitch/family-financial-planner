@@ -6,7 +6,9 @@
   "scripts": {
     "start": "PORT=4000 node src/server.js",
     "dev": "PORT=4000 nodemon src/server.js",
-    "migrate": "node src/db/migrate.js"
+    "migrate": "node src/db/migrate.js",
+    "build": "node src/db/migrate.js",
+    "vercel-build": "node src/db/migrate.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
