@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Canadian Family Financial Planner — wealth optimization, tax planning, and retirement simulation.">
+  <title>Family Financial Planner</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script>
+    (function() {
+      var theme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js" integrity="sha384-iZD2X8o1Zdq0HR5H/7oa8W30WS4No+zWCKUPD7fHRay9I1Gf+C4F8sVmw7zec1wW" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" crossorigin="anonymous"></script>
+</head>
+<body>
+  <a href="#page-content" class="skip-link">Skip to main content</a>
+
+  <div id="app" x-data="appShell()" x-init="initApp()">
+
+    <!-- Auth Screen -->
+    <template x-if="!isAuthenticated">
+      <div class="auth-page">
+        <div x-show="authTab === 'login'" class="auth-card" x-transition.opacity>
+          <h1>🏠 Welcome back</h1>
+          <p>Sign in to your financial dashboard</p>
+          <div class="form-group">
+            <label for="auth-email">Email</label>
+            <input id="auth-email" type="email" x-model="auth.email" placeholder="you@example.com" @keydown.enter="login()" autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label for="auth-password">Password</label>
+            <input id="auth-password" type="password" x-model="auth.password" placeholder="••••••••" @keydown.enter="login()" autocomplete="current-password">
+          </div>
+          <button class="btn btn-lg" style="width:100%;margin-top:8px" @click="login()" :disabled="auth.loading">
+            <span x-show="auth.loading">⏳</span> <span x-text="auth.loading ? 'Signing in...' : 'Sign In'"></span>
+          </button>
+          <p style="text-align:center;margin-top:16px;font-size:0.85rem;color:var(--text-light)">
+            No account? <a href="#" @click.prevent="authTab='register'" style="color:var(--primary);font-weight:600">Create one</a>
+          </p>
+        </div>
+
+        <div x-show="authTab === 'register'" class="auth-card" x-transition.opacity>
+          <h1>🚀 Get started</h1>
+          <p>Create your free financial dashboard</p>
+          <div class="form-group">
+            <label for="reg-name">Full Name</label>
+            <input id="reg-name" type="text" x-model="auth.name" placeholder="Jane Doe" autocomplete="name">
+          </div>
+          <div class="form-group">
+            <label for="reg-email">Email</label>
+            <input id="reg-email" type="email" x-model="auth.email" placeholder="you@example.com" autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label for="reg-password">Password</label>
+            <input id="reg-password" type="password" x-model="auth.password" placeholder="Min 8 characters" autocomplete="new-password">
+          </div>
+          <button class="btn btn-lg" style="width:100%;margin-top:8px" @click="register()" :disabled="auth.loading">
+            <span x-show="auth.loading">⏳</span> <span x-text="auth.loading ? 'Creating...' : 'Create Account'"></span>
+          </button>
+          <p style="text-align:center;margin-top:16px;font-size:0.85rem;color:var(--text-light)">
+            Already have an account? <a href="#" @click.prevent="authTab='login'" style="color:var(--primary);font-weight:600">Sign in</a>
+          </p>
+        </div>
+      </div>
+    </template>
+
+    <!-- App Shell -->
+    <template x-if="isAuthenticated">
+      <div>
+        <button class="sidebar-toggle no-print" @click="sidebarOpen = !sidebarOpen" aria-label="Toggle sidebar">☰</button>
+
+        <nav class="sidebar no-print" :class="{ open: sidebarOpen }" aria-label="Main navigation">
+          <div class="sidebar-header">
+            <div>
+              <h1>🏠 Planner</h1>
+              <span class="family-name" x-text="familyName || 'Select Family'"></span>
+            </div>
+            <button class="theme-toggle no-print" @click="toggleTheme()" x-text="theme === 'dark' ? '☀️' : '🌙'" aria-label="Toggle theme"></button>
+          </div>
+
+          <ul class="nav-links" role="navigation">
+            <li><a href="#/dashboard" :class="{ active: currentPage === 'dashboard' }"><span class="nav-icon">📊</span> Dashboard</a></li>
+            <li><a href="#/family" :class="{ active: currentPage === 'family' }"><span class="nav-icon">👨‍👩‍👧‍👦</span> Family</a></li>
+            <li><a href="#/finances" :class="{ active: currentPage === 'finances' }"><span class="nav-icon">💰</span> Finances</a></li>
+            <li><a href="#/budget" :class="{ active: currentPage === 'budget' }"><span class="nav-icon">📋</span> Budget</a></li>
+            <li><a href="#/tax-planner" :class="{ active: currentPage === 'tax-planner' }"><span class="nav-icon">📊</span> Tax Planner</a></li>
+            <li><a href="#/mortgage-invest" :class="{ active: currentPage === 'mortgage-invest' }"><span class="nav-icon">🏠</span> Mortgage vs Invest</a></li>
+            <li><a href="#/retirement-sim" :class="{ active: currentPage === 'retirement-sim' }"><span class="nav-icon">👴</span> Retirement Sim</a></li>
+            <li><a href="#/monte-carlo" :class="{ active: currentPage === 'monte-carlo' }"><span class="nav-icon">🎲</span> Monte Carlo</a></li>
+            <li><a href="#/fhsa" :class="{ active: currentPage === 'fhsa' }"><span class="nav-icon">🏡</span> FHSA</a></li>
+            <li><a href="#/goals" :class="{ active: currentPage === 'goals' }"><span class="nav-icon">🎯</span> Goals</a></li>
+            <li><a href="#/insurance" :class="{ active: currentPage === 'insurance' }"><span class="nav-icon">🛡️</span> Insurance</a></li>
+            <li><a href="#/actions" :class="{ active: currentPage === 'actions' }"><span class="nav-icon">✅</span> Actions</a></li>
+            <li><a href="#/milestones" :class="{ active: currentPage === 'milestones' }"><span class="nav-icon">🏁</span> Milestones</a></li>
+            <li><a href="#/export" :class="{ active: currentPage === 'export' }"><span class="nav-icon">📄</span> Export</a></li>
+          </ul>
+
+          <div class="sidebar-footer no-print">
+            <button id="btn-pdf" class="btn-secondary" style="width:100%;margin-bottom:10px" @click="window.print()">📄 Export PDF</button>
+            <button class="btn-secondary" style="width:100%" @click="logout()">🚪 Sign Out</button>
+          </div>
+        </nav>
+
+        <main class="main-content">
+          <div id="page-content" role="main" aria-live="polite" aria-busy="false"></div>
+        </main>
+      </div>
+    </template>
+
+    <div class="toast-container" id="toast-container" role="status" aria-live="polite"></div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/router.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

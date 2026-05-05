@@ -1,0 +1,80 @@
+<div>
+  <div class="top-bar">
+    <div>
+      <h2>📊 Dashboard Overview</h2>
+      <p style="margin-top:4px;color:var(--text-light);font-size:0.9rem">
+        <strong id="dash-name">Loading...</strong> — <span id="dash-location">Loading...</span> | Tax: <span id="dash-tax">Loading...</span>
+      </p>
+    </div>
+    <button class="btn btn-sm" onclick="Router.go('finances')">+ Add Account</button>
+  </div>
+
+  <div id="smart-recommendations"></div>
+
+  <!-- Key Metrics -->
+  <div class="grid grid-4" style="margin-bottom:24px">
+    <div class="card no-hover">
+      <div class="stat-label">Net Worth</div>
+      <div class="stat-value" id="dash-net-worth">$0</div>
+    </div>
+    <div class="card no-hover">
+      <div class="stat-label">Total Assets</div>
+      <div class="stat-value positive" id="dash-assets">$0</div>
+    </div>
+    <div class="card no-hover">
+      <div class="stat-label">Total Liabilities</div>
+      <div class="stat-value negative" id="dash-liabilities">$0</div>
+    </div>
+    <div class="card no-hover">
+      <div class="stat-label">Savings Rate</div>
+      <div class="stat-value" id="dash-savings-rate">0%</div>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="grid grid-2" style="margin-bottom:24px">
+    <div class="card">
+      <h3>📈 Net Worth History</h3>
+      <div class="chart-container">
+        <canvas id="networth-chart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🍩 Asset Allocation</h3>
+      <div class="chart-container">
+        <canvas id="asset-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:24px">
+    <h3>📊 Budget Trend</h3>
+    <div class="chart-container">
+      <canvas id="budget-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- Income / Expense Summary -->
+  <div class="grid grid-2" style="margin-bottom:24px">
+    <div class="card no-hover">
+      <div class="stat-label">Monthly Income</div>
+      <div class="stat-value positive" id="dash-income">$0</div>
+    </div>
+    <div class="card no-hover">
+      <div class="stat-label">Monthly Expenses</div>
+      <div class="stat-value negative" id="dash-expenses">$0</div>
+    </div>
+  </div>
+
+  <!-- Goals & Actions -->
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>🎯 Top Goals</h3>
+      <div id="dash-goals" style="margin-top:12px"></div>
+    </div>
+    <div class="card">
+      <h3>✅ Recent Actions</h3>
+      <div id="dash-actions" style="margin-top:12px"></div>
+    </div>
+  </div>
+</div>
