@@ -132,7 +132,7 @@
                   </div>
                 </div>
                 <div class="wizard-actions">
-                  <button class="btn btn-lg" @click="nextStep()">Let's begin →</button>
+                  <button class="btn btn-lg" @click="nextStep()" :disabled="isLoading">Let's begin →</button>
                 </div>
               </div>
 
@@ -172,8 +172,11 @@
                 <button class="btn-secondary" @click="wizard.members.push({name:'', age:'', role:'Child'})">+ Add member</button>
 
                 <div class="wizard-actions">
-                  <button class="btn-secondary" @click="prevStep()">← Back</button>
-                  <button class="btn" @click="saveFamily()" :disabled="!wizard.familyName || wizard.members.some(m=>!m.name)">Continue →</button>
+                  <button class="btn-secondary" @click="prevStep()" :disabled="isLoading">← Back</button>
+                  <button class="btn" @click="saveFamily()" :disabled="!wizard.familyName || wizard.members.some(m=>!m.name) || isLoading">
+                    <span x-show="isLoading">⏳</span>
+                    <span x-text="isLoading ? 'Saving...' : 'Continue →'"></span>
+                  </button>
                 </div>
               </div>
 
@@ -226,8 +229,11 @@
                 </div>
 
                 <div class="wizard-actions">
-                  <button class="btn-secondary" @click="prevStep()">← Back</button>
-                  <button class="btn" @click="saveSnapshot()">Continue →</button>
+                  <button class="btn-secondary" @click="prevStep()" :disabled="isLoading">← Back</button>
+                  <button class="btn" @click="saveSnapshot()" :disabled="isLoading">
+                    <span x-show="isLoading">⏳</span>
+                    <span x-text="isLoading ? 'Saving...' : 'Continue →'"></span>
+                  </button>
                 </div>
               </div>
 
@@ -252,8 +258,11 @@
                   </template>
                 </div>
                 <div class="wizard-actions">
-                  <button class="btn-secondary" @click="prevStep()">← Back</button>
-                  <button class="btn" @click="saveGoals()">Generate my plan →</button>
+                  <button class="btn-secondary" @click="prevStep()" :disabled="isLoading">← Back</button>
+                  <button class="btn" @click="saveGoals()" :disabled="isLoading">
+                    <span x-show="isLoading">⏳</span>
+                    <span x-text="isLoading ? 'Generating...' : 'Generate my plan →'"></span>
+                  </button>
                 </div>
               </div>
 
@@ -298,7 +307,7 @@
                 </div>
 
                 <div class="wizard-actions">
-                  <button class="btn btn-lg" @click="finishWizard()">Go to my dashboard →</button>
+                  <button class="btn btn-lg" @click="finishWizard()" :disabled="isLoading">Go to my dashboard →</button>
                 </div>
               </div>
             </div>
@@ -497,7 +506,9 @@
                 </div>
               </template>
             </div>
-            <button class="btn btn-primary" type="submit" style="margin-top:8px">Calculate</button>
+            <button class="btn btn-primary" type="submit" style="margin-top:8px" :disabled="isLoading">
+              <span x-show="isLoading">⏳</span> <span x-text="isLoading ? 'Calculating...' : 'Calculate'">Calculate</span>
+            </button>
           </form>
           <!-- Result -->
           <div x-show="toolModalResult !== null" class="tool-result" style="margin-top:12px">

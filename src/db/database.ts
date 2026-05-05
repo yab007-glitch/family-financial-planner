@@ -1,31 +1,23 @@
 import sqlite3 from 'sqlite3';
 import { CONFIG } from '../config';
 
-function connectWithRetry(retries = 3): sqlite3.Database {
-    const db = new sqlite3.Database(CONFIG.DB_PATH, (err) => {
-        if (err) {
-            console.error('Database connection error:', err);
-            if (retries > 0) {
-                console.log(`Retrying connection... (${retries} attempts left)`);
-                setTimeout(() => connectWithRetry(retries - 1), 1000);
-            }
-        } else {
-            console.log(`📁 SQLite connected: ${CONFIG.DB_PATH}`);
-        }
-    });
+const db = new sqlite3.Database(CONFIG.DB_PATH, (err) => {
+    if (err) {
+        console.error('❌ Database connection error:', err.message);
+        process.exit(1);
+    } else {
+        console.log(`📁 SQLite connected: ${CONFIG.DB_PATH}`);
+    }
+});
 
-    db.run('PRAGMA journal_mode = WAL', (err) => {
-        if (err) console.error('WAL mode error:', err);
-        else console.log('✅ WAL mode enabled');
-    });
-    db.run('PRAGMA foreign_keys = ON');
-    db.run('PRAGMA busy_timeout = 5000');
-    db.run('PRAGMA synchronous = NORMAL');
+db.run('PRAGMA journal_mode = WAL', (err) => {
+    if (err) console.error('WAL mode error:', err.message);
+    else console.log('✅ WAL mode enabled');
+});
 
-    return db;
-}
-
-const db = connectWithRetry();
+db.run('PRAGMA foreign_keys = ON');
+db.run('PRAGMA busy_timeout = 5000');
+db.run('PRAGMA synchronous = NORMAL');
 
 export function healthCheck(): Promise<boolean> {
     return new Promise((resolve) => {
