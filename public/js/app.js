@@ -350,27 +350,65 @@ function appShell() {
       this.sidebarOpen = false;
     },
 
-    async openAddAccount() {
-      const type = prompt('Account type? (TFSA, RRSP, FHSA, RESP, Emergency Fund, Checking, Savings)');
-      if (!type) return;
-      const balance = Number(prompt('Current balance?', '0')) || 0;
+    showToolModal: false,
+    toolModalTitle: '',
+    toolModalInputs: [],
+    toolModalRun: null,
+    toolModalResult: null,
+
+    closeToolModal() {
+      this.showToolModal = false;
+      this.toolModalTitle = '';
+      this.toolModalInputs = [];
+      this.toolModalRun = null;
+      this.toolModalResult = null;
+    },
+
+    openToolModal(title, inputs, runner) {
+      this.toolModalTitle = title;
+      this.toolModalInputs = inputs.map(i => ({ ...i, value: i.default ?? '' }));
+      this.toolModalRun = runner;
+      this.toolModalResult = null;
+      this.showToolModal = true;
+    },
+
+    async submitToolModal() {
+      const body = {};
+      for (const input of this.toolModalInputs) {
+        if (input.type === 'number') body[input.key] = Number(input.value) || 0;
+        else if (input.type === 'checkbox') body[input.key] = Boolean(input.value);
+        else body[input.key] = input.value;
+      }
       try {
-        await API.post(`/api/families/${this.familySlug}/accounts`, { type, institution: '', balance });
+        const res = await this.toolModalRun(body);
+        this.toolModalResult = res.data;
+      } catch (err) { Toast.show(err.message || 'Tool failed', 'error'); }
+    },
+
+    async openAddAccount() {
+      this.openToolModal('Add Account', [
+        { key: 'type', label: 'Account Type', type: 'text', default: 'TFSA' },
+        { key: 'institution', label: 'Institution', type: 'text', default: '' },
+        { key: 'balance', label: 'Current Balance', type: 'number', default: 0 }
+      ], async (body) => {
+        await API.post(`/api/families/${this.familySlug}/accounts`, body);
         Toast.show('Account added', 'success');
         this.loadDashboard();
-      } catch (err) { Toast.show(err.message, 'error'); }
+        return { data: { success: true } };
+      });
     },
 
     async openAddDebt() {
-      const type = prompt('Debt type? (Mortgage, Car Loan, Credit Card, Student Loan, Line of Credit)');
-      if (!type) return;
-      const balance = Number(prompt('Balance owed?', '0')) || 0;
-      const rate = Number(prompt('Interest rate %?', '0')) || 0;
-      try {
-        await API.post(`/api/families/${this.familySlug}/debts`, { type, balance, interest_rate: rate });
+      this.openToolModal('Add Debt', [
+        { key: 'type', label: 'Debt Type', type: 'text', default: 'Credit Card' },
+        { key: 'balance', label: 'Balance Owed', type: 'number', default: 0 },
+        { key: 'interest_rate', label: 'Interest Rate %', type: 'number', default: 0 }
+      ], async (body) => {
+        await API.post(`/api/families/${this.familySlug}/debts`, body);
         Toast.show('Debt added', 'success');
         this.loadDashboard();
-      } catch (err) { Toast.show(err.message, 'error'); }
+        return { data: { success: true } };
+      });
     },
 
     async updateGoal(g) {
@@ -387,45 +425,80 @@ function appShell() {
 
     /* Tool Modals */
     openTaxCalc() {
-      const income = Number(prompt('Annual income?', '70000')) || 70000;
-      const rrsp = Number(prompt('RRSP contribution this year?', '0')) || 0;
-      this.runTool(`/api/families/${this.familySlug}/tax/calculate`, { income, rrsp_contribution: rrsp }, 'Tax Breakdown');
+      this.toolModalResult = null;
+      this.openToolModal('Tax Breakdown', [
+        { key: 'income', label: 'Annual Income', type: 'number', default: 70000 },
+        { key: 'rrsp_contribution', label: 'RRSP Contribution', type: 'number', default: 0 }
+      ], async (body) => {
+        const res = await API.post(`/api/families/${this.familySlug}/tax/calculate`, body);
+        return res;
+      });
     },
     openRetirementCalc() {
-      const age = Number(prompt('Current age?', '35')) || 35;
-      const retirement = Number(prompt('Desired retirement age?', '65')) || 65;
-      const savings = Number(prompt('Current retirement savings?', '50000')) || 50000;
-      const contrib = Number(prompt('Monthly contribution?', '500')) || 500;
-      this.runTool(`/api/families/${this.familySlug}/tools/retirement-simulate`, { currentAge: age, desiredRetirementAge: retirement, currentSavings: savings, monthlyContribution: contrib, expectedReturn: 7 }, 'Retirement Simulation');
+      this.toolModalResult = null;
+      this.openToolModal('Retirement Simulation', [
+        { key: 'currentAge', label: 'Current Age', type: 'number', default: 35 },
+        { key: 'desiredRetirementAge', label: 'Retirement Age', type: 'number', default: 65 },
+        { key: 'currentSavings', label: 'Current Savings', type: 'number', default: 50000 },
+        { key: 'monthlyContribution', label: 'Monthly Contribution', type: 'number', default: 500 },
+        { key: 'expectedReturn', label: 'Expected Return %', type: 'number', default: 7 }
+      ], async (body) => {
+        const res = await API.post(`/api/families/${this.familySlug}/tools/retirement-simulate`, body);
+        return res;
+      });
     },
     openMortgageCalc() {
-      const amount = Number(prompt('Mortgage balance?', '300000')) || 300000;
-      const rate = Number(prompt('Interest rate %?', '4.5')) || 4.5;
-      const surplus = Number(prompt('Monthly surplus?', '1000')) || 1000;
-      this.runTool(`/api/families/${this.familySlug}/tools/mortgage-vs-invest`, { mortgageAmount: amount, interestRate: rate, amortizationYears: 25, monthlyPayment: 1500, monthlySurplus: surplus, expectedReturn: 7, marginalTaxRate: 0.33 }, 'Mortgage vs Invest');
+      this.toolModalResult = null;
+      this.openToolModal('Mortgage vs Invest', [
+        { key: 'mortgageAmount', label: 'Mortgage Balance', type: 'number', default: 300000 },
+        { key: 'interestRate', label: 'Interest Rate %', type: 'number', default: 4.5 },
+        { key: 'amortizationYears', label: 'Amortization Years', type: 'number', default: 25 },
+        { key: 'monthlyPayment', label: 'Monthly Payment', type: 'number', default: 1500 },
+        { key: 'monthlySurplus', label: 'Monthly Surplus', type: 'number', default: 1000 },
+        { key: 'expectedReturn', label: 'Expected Return %', type: 'number', default: 7 },
+        { key: 'marginalTaxRate', label: 'Marginal Tax Rate', type: 'number', default: 0.33 }
+      ], async (body) => {
+        const res = await API.post(`/api/families/${this.familySlug}/tools/mortgage-vs-invest`, body);
+        return res;
+      });
     },
     openFHSA() {
-      const income = Number(prompt('Annual income?', '70000')) || 70000;
-      const age = Number(prompt('Your age?', '30')) || 30;
-      this.runTool(`/api/families/${this.familySlug}/tools/fhsa-check`, { income, age, firstTimeBuyer: true }, 'FHSA Eligibility');
+      this.toolModalResult = null;
+      this.openToolModal('FHSA Eligibility', [
+        { key: 'income', label: 'Annual Income', type: 'number', default: 70000 },
+        { key: 'age', label: 'Your Age', type: 'number', default: 30 },
+        { key: 'firstTimeBuyer', label: 'First-time Home Buyer', type: 'checkbox', default: true }
+      ], async (body) => {
+        const res = await API.post(`/api/families/${this.familySlug}/tools/fhsa-check`, body);
+        return res;
+      });
     },
     openMonteCarlo() {
-      const amount = Number(prompt('Current portfolio?', '100000')) || 100000;
-      const contrib = Number(prompt('Monthly contribution?', '1000')) || 1000;
-      const years = Number(prompt('Years to retirement?', '27')) || 27;
-      this.runTool(`/api/families/${this.familySlug}/tools/monte-carlo`, { initialAmount: amount, monthlyContribution: contrib, years, expectedReturn: 7 }, 'Monte Carlo Projection');
+      this.toolModalResult = null;
+      this.openToolModal('Monte Carlo Projection', [
+        { key: 'initialAmount', label: 'Current Portfolio', type: 'number', default: 100000 },
+        { key: 'monthlyContribution', label: 'Monthly Contribution', type: 'number', default: 1000 },
+        { key: 'years', label: 'Years', type: 'number', default: 27 },
+        { key: 'expectedReturn', label: 'Expected Return %', type: 'number', default: 7 }
+      ], async (body) => {
+        const res = await API.post(`/api/families/${this.familySlug}/tools/monte-carlo`, body);
+        return res;
+      });
     },
     openDebtStrategy() {
-      const debts = (this.familyData?.debts || []).map(d => ({ name: d.type, balance: d.balance, interestRate: d.interest_rate || 0, monthlyPayment: d.balance / 120 }));
+      const debts = (this.familyData?.debts || []).map(d => ({ name: d.type, balance: d.balance, interestRate: d.interest_rate || 0, monthlyPayment: Math.round(d.balance / 120) }));
       if (!debts.length) { Toast.show('No debts on file. Add debts first.', 'warning'); return; }
-      this.runTool(`/api/families/${this.familySlug}/tools/debt-strategy`, { debts }, 'Debt Strategy');
+      this.toolModalResult = null;
+      this.openToolModal('Debt Strategy', [], async () => {
+        const res = await API.post(`/api/families/${this.familySlug}/tools/debt-strategy`, { debts });
+        return res;
+      });
     },
     async runTool(url, body, title) {
       try {
         const res = await API.post(url, body);
-        const pretty = JSON.stringify(res.data, null, 2);
-        alert(`${title}:\n\n${pretty.substring(0, 1800)}${pretty.length > 1800 ? '...' : ''}`);
-      } catch (err) { Toast.show(err.message, 'error'); }
+        this.toolModalResult = res.data;
+      } catch (err) { Toast.show(err.message || 'Tool failed', 'error'); }
     }
   };
 }
