@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Canadian Family Financial Planner — wealth optimization, tax planning, and retirement simulation.">
-  <title>Family Financial Planner</title>
+  <meta name="description" content="Canadian Family Financial Planner — your personal wealth-building assistant.">
+  <title>WealthBuilder — Family Financial Planner</title>
   <link rel="stylesheet" href="/css/styles.css">
+  <style>[x-cloak] { display: none !important; }</style>
   <script>
     (function() {
       var theme = localStorage.getItem('theme') || 'dark';
@@ -21,7 +22,7 @@
   <div id="app" x-data="appShell()" x-init="initApp()">
 
     <!-- Auth Screen -->
-    <template x-if="!isAuthenticated">
+    <div id="auth-screen" style="display:none">
       <div class="auth-page">
         <div x-show="authTab === 'login'" class="auth-card" x-transition.opacity>
           <h1>🏠 Welcome back</h1>
@@ -65,56 +66,420 @@
           </p>
         </div>
       </div>
-    </template>
+    </div>
 
     <!-- App Shell -->
-    <template x-if="isAuthenticated">
+    <div id="app-shell" style="display:none">
       <div>
         <button class="sidebar-toggle no-print" @click="sidebarOpen = !sidebarOpen" aria-label="Toggle sidebar">☰</button>
 
         <nav class="sidebar no-print" :class="{ open: sidebarOpen }" aria-label="Main navigation">
           <div class="sidebar-header">
             <div>
-              <h1>🏠 Planner</h1>
-              <span class="family-name" x-text="familyName || 'Select Family'"></span>
+              <h1>🏠 WealthBuilder</h1>
+              <span class="family-name" x-text="familyName || 'Get Started'"></span>
             </div>
             <button class="theme-toggle no-print" @click="toggleTheme()" x-text="theme === 'dark' ? '☀️' : '🌙'" aria-label="Toggle theme"></button>
           </div>
 
           <ul class="nav-links" role="navigation">
-            <li><a href="#/dashboard" :class="{ active: currentPage === 'dashboard' }"><span class="nav-icon">📊</span> Dashboard</a></li>
-            <li><a href="#/family" :class="{ active: currentPage === 'family' }"><span class="nav-icon">👨‍👩‍👧‍👦</span> Family</a></li>
-            <li><a href="#/finances" :class="{ active: currentPage === 'finances' }"><span class="nav-icon">💰</span> Finances</a></li>
-            <li><a href="#/budget" :class="{ active: currentPage === 'budget' }"><span class="nav-icon">📋</span> Budget</a></li>
-            <li><a href="#/tax-planner" :class="{ active: currentPage === 'tax-planner' }"><span class="nav-icon">📊</span> Tax Planner</a></li>
-            <li><a href="#/mortgage-invest" :class="{ active: currentPage === 'mortgage-invest' }"><span class="nav-icon">🏠</span> Mortgage vs Invest</a></li>
-            <li><a href="#/retirement-sim" :class="{ active: currentPage === 'retirement-sim' }"><span class="nav-icon">👴</span> Retirement Sim</a></li>
-            <li><a href="#/monte-carlo" :class="{ active: currentPage === 'monte-carlo' }"><span class="nav-icon">🎲</span> Monte Carlo</a></li>
-            <li><a href="#/fhsa" :class="{ active: currentPage === 'fhsa' }"><span class="nav-icon">🏡</span> FHSA</a></li>
-            <li><a href="#/goals" :class="{ active: currentPage === 'goals' }"><span class="nav-icon">🎯</span> Goals</a></li>
-            <li><a href="#/insurance" :class="{ active: currentPage === 'insurance' }"><span class="nav-icon">🛡️</span> Insurance</a></li>
-            <li><a href="#/actions" :class="{ active: currentPage === 'actions' }"><span class="nav-icon">✅</span> Actions</a></li>
-            <li><a href="#/milestones" :class="{ active: currentPage === 'milestones' }"><span class="nav-icon">🏁</span> Milestones</a></li>
-            <li><a href="#/export" :class="{ active: currentPage === 'export' }"><span class="nav-icon">📄</span> Export</a></li>
+            <li><a href="#/dashboard" :class="{ active: currentPage === 'dashboard' }" @click.prevent="go('dashboard')"><span class="nav-icon">📊</span> Dashboard</a></li>
+            <li><a href="#/plan" :class="{ active: currentPage === 'plan' }" @click.prevent="go('plan')"><span class="nav-icon">🎯</span> My Plan</a></li>
+            <li><a href="#/tools" :class="{ active: currentPage === 'tools' }" @click.prevent="go('tools')"><span class="nav-icon">🧮</span> Tools</a></li>
           </ul>
 
           <div class="sidebar-footer no-print">
-            <button id="btn-pdf" class="btn-secondary" style="width:100%;margin-bottom:10px" @click="window.print()">📄 Export PDF</button>
+            <button class="btn-secondary" style="width:100%;margin-bottom:10px" @click="window.print()">📄 Export PDF</button>
             <button class="btn-secondary" style="width:100%" @click="logout()">🚪 Sign Out</button>
           </div>
         </nav>
 
         <main class="main-content">
-          <div id="page-content" role="main" aria-live="polite" aria-busy="false"></div>
+          <div id="page-content" role="main" aria-live="polite" aria-busy="false">
+
+            <!-- WIZARD -->
+            <div x-show="showWizard" x-transition.opacity>
+              <!-- Step 1: Welcome -->
+              <div x-show="wizardStep === 1" class="wizard-step">
+                <h2>👋 Welcome to WealthBuilder</h2>
+                <p class="lead">Let's build your personalized wealth plan in just a few minutes. No financial jargon — just clear steps toward a wealthier future.</p>
+                <div class="wizard-cards">
+                  <div class="info-card">
+                    <div class="info-icon">📊</div>
+                    <h4>See everything in one place</h4>
+                    <p>Your net worth, goals, and next best actions — all beautifully visualized.</p>
+                  </div>
+                  <div class="info-card">
+                    <div class="info-icon">🎯</div>
+                    <h4>Set goals that make sense</h4>
+                    <p>We help you prioritize: emergency fund, home, retirement, and more.</p>
+                  </div>
+                  <div class="info-card">
+                    <div class="info-icon">⚡</div>
+                    <h4>Know your next move</h4>
+                    <p>Get clear recommendations on where to put your money for maximum growth.</p>
+                  </div>
+                </div>
+                <div class="wizard-actions">
+                  <button class="btn btn-lg" @click="nextStep()">Let's begin →</button>
+                </div>
+              </div>
+
+              <!-- Step 2: Family -->
+              <div x-show="wizardStep === 2" class="wizard-step">
+                <h2>👨‍👩‍👧‍👦 Tell us about your household</h2>
+                <p class="lead">Who lives with you? This helps us tailor tax credits, RESP grants, and insurance recommendations.</p>
+                <div class="form-group">
+                  <label>Family / household name</label>
+                  <input type="text" x-model="wizard.familyName" placeholder="e.g. The Smith Family">
+                </div>
+                <div class="form-group">
+                  <label>Province</label>
+                  <select x-model="wizard.province">
+                    <option value="QC">Quebec</option>
+                    <option value="ON">Ontario</option>
+                    <option value="BC">British Columbia</option>
+                    <option value="AB">Alberta</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <h3 style="margin-top:24px">Household members</h3>
+                <template x-for="(member, idx) in wizard.members" :key="idx">
+                  <div class="flex-row" style="gap:12px;margin-bottom:12px">
+                    <input type="text" x-model="member.name" placeholder="Name" style="flex:1">
+                    <input type="number" x-model="member.age" placeholder="Age" style="width:80px">
+                    <select x-model="member.role" style="width:140px">
+                      <option value="Primary Income">Primary Income</option>
+                      <option value="Secondary Income">Secondary Income</option>
+                      <option value="Child">Child</option>
+                      <option value="Dependent">Dependent</option>
+                    </select>
+                    <button class="btn-secondary" @click="wizard.members.splice(idx,1)" x-show="wizard.members.length > 1">✕</button>
+                  </div>
+                </template>
+                <button class="btn-secondary" @click="wizard.members.push({name:'', age:'', role:'Child'})">+ Add member</button>
+
+                <div class="wizard-actions">
+                  <button class="btn-secondary" @click="prevStep()">← Back</button>
+                  <button class="btn" @click="saveFamily()" :disabled="!wizard.familyName || wizard.members.some(m=>!m.name)">Continue →</button>
+                </div>
+              </div>
+
+              <!-- Step 3: Money Snapshot -->
+              <div x-show="wizardStep === 3" class="wizard-step">
+                <h2>💰 Your money snapshot</h2>
+                <p class="lead">Don't worry about exact numbers — estimates are fine. We'll use this to build your plan.</p>
+
+                <div class="wizard-section">
+                  <h3>📥 What you own (assets)</h3>
+                  <template x-for="(acc, idx) in wizard.accounts" :key="idx">
+                    <div class="flex-row" style="gap:12px;margin-bottom:12px">
+                      <select x-model="acc.type" style="width:200px">
+                        <option value="">Select type...</option>
+                        <option value="TFSA">TFSA</option>
+                        <option value="RRSP">RRSP</option>
+                        <option value="FHSA">FHSA</option>
+                        <option value="RESP">RESP</option>
+                        <option value="Emergency Fund">Emergency Fund</option>
+                        <option value="Checking">Checking</option>
+                        <option value="Savings">Savings</option>
+                        <option value="Non-registered">Non-registered</option>
+                      </select>
+                      <input type="text" x-model="acc.institution" placeholder="Bank / Broker" style="flex:1">
+                      <input type="number" x-model="acc.balance" placeholder="Balance" style="width:120px">
+                      <button class="btn-secondary" @click="wizard.accounts.splice(idx,1)">✕</button>
+                    </div>
+                  </template>
+                  <button class="btn-secondary" @click="wizard.accounts.push({type:'', institution:'', balance:''})">+ Add account</button>
+                </div>
+
+                <div class="wizard-section">
+                  <h3>📤 What you owe (debts)</h3>
+                  <template x-for="(debt, idx) in wizard.debts" :key="idx">
+                    <div class="flex-row" style="gap:12px;margin-bottom:12px">
+                      <select x-model="debt.type" style="width:200px">
+                        <option value="">Select type...</option>
+                        <option value="Mortgage">Mortgage</option>
+                        <option value="Car Loan">Car Loan</option>
+                        <option value="Credit Card">Credit Card</option>
+                        <option value="Student Loan">Student Loan</option>
+                        <option value="Line of Credit">Line of Credit</option>
+                      </select>
+                      <input type="number" x-model="debt.balance" placeholder="Balance owed" style="flex:1">
+                      <input type="number" x-model="debt.interest_rate" placeholder="Rate %" style="width:100px">
+                      <button class="btn-secondary" @click="wizard.debts.splice(idx,1)">✕</button>
+                    </div>
+                  </template>
+                  <button class="btn-secondary" @click="wizard.debts.push({type:'', balance:'', interest_rate:''})">+ Add debt</button>
+                </div>
+
+                <div class="wizard-actions">
+                  <button class="btn-secondary" @click="prevStep()">← Back</button>
+                  <button class="btn" @click="saveSnapshot()">Continue →</button>
+                </div>
+              </div>
+
+              <!-- Step 4: Goals -->
+              <div x-show="wizardStep === 4" class="wizard-step">
+                <h2>🎯 What are you building toward?</h2>
+                <p class="lead">Pick the goals that matter to you. We'll auto-calculate what it takes to reach them.</p>
+                <div class="goal-templates">
+                  <template x-for="(goal, idx) in wizard.goals" :key="idx">
+                    <div class="goal-card" :class="{ selected: goal.selected }" @click="goal.selected = !goal.selected">
+                      <div class="goal-emoji" x-text="goal.emoji"></div>
+                      <h4 x-text="goal.name"></h4>
+                      <p x-text="goal.description"></p>
+                      <div x-show="goal.selected" class="goal-inputs" @click.stop>
+                        <div class="flex-row" style="gap:12px">
+                          <input type="number" x-model="goal.target_amount" :placeholder="goal.targetPlaceholder" style="flex:1">
+                          <input type="number" x-model="goal.current_amount" placeholder="Current saved" style="flex:1">
+                        </div>
+                        <input type="date" x-model="goal.deadline" style="margin-top:8px">
+                      </div>
+                    </div>
+                  </template>
+                </div>
+                <div class="wizard-actions">
+                  <button class="btn-secondary" @click="prevStep()">← Back</button>
+                  <button class="btn" @click="saveGoals()">Generate my plan →</button>
+                </div>
+              </div>
+
+              <!-- Step 5: Generated Plan -->
+              <div x-show="wizardStep === 5" class="wizard-step">
+                <h2>🎉 Your personalized wealth plan is ready</h2>
+                <p class="lead">Here's what we recommend based on your profile:</p>
+
+                <div class="plan-grid" x-show="generatedPlan.netWorth !== null">
+                  <div class="plan-card highlight">
+                    <div class="plan-label">Your Net Worth</div>
+                    <div class="plan-value" x-text="formatCurrency(generatedPlan.netWorth)"></div>
+                    <div class="plan-sub" x-text="generatedPlan.netWorth >= 0 ? 'You own more than you owe' : 'Time to turn the tide'"></div>
+                  </div>
+                  <div class="plan-card">
+                    <div class="plan-label">Debt-free date</div>
+                    <div class="plan-value" x-text="generatedPlan.debtFreeDate || '—'"></div>
+                    <div class="plan-sub">Using avalanche method</div>
+                  </div>
+                  <div class="plan-card">
+                    <div class="plan-label">Next best account</div>
+                    <div class="plan-value" x-text="generatedPlan.nextAccount || '—'"></div>
+                    <div class="plan-sub" x-text="generatedPlan.nextAccountReason || ''"></div>
+                  </div>
+                  <div class="plan-card">
+                    <div class="plan-label">Emergency fund target</div>
+                    <div class="plan-value" x-text="formatCurrency(generatedPlan.emergencyTarget)"></div>
+                    <div class="plan-sub">3 months of essential expenses</div>
+                  </div>
+                </div>
+
+                <div x-show="generatedPlan.actions.length > 0" style="margin-top:24px">
+                  <h3>✅ Your first 30 days</h3>
+                  <div class="action-list">
+                    <template x-for="action in generatedPlan.actions" :key="action">
+                      <div class="action-item">
+                        <span class="action-check">☐</span>
+                        <span x-text="action"></span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
+                <div class="wizard-actions">
+                  <button class="btn btn-lg" @click="finishWizard()">Go to my dashboard →</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- DASHBOARD -->
+            <div x-show="!showWizard" x-transition.opacity>
+              <div x-show="currentPage === 'dashboard'">
+                <div class="dashboard-header">
+                  <h2 x-text="'Welcome back, ' + (userName || 'friend')"></h2>
+                  <p class="lead" x-text="dashboardSubheadline"></p>
+                </div>
+
+                <div class="dashboard-grid">
+                  <!-- Net Worth Card -->
+                  <div class="dash-card networth">
+                    <div class="dash-card-header">
+                      <h4>📊 Net Worth</h4>
+                      <span class="networth-value" x-text="formatCurrency(summary?.netWorth ?? 0)"></span>
+                    </div>
+                    <div class="networth-bar">
+                      <div class="bar-track">
+                        <div class="bar-fill" :style="`width:${Math.min(100, (summary?.assets ?? 0) / ((summary?.assets ?? 0)+(summary?.liabilities ?? 1)+1) * 100)}%`"></div>
+                      </div>
+                      <div class="bar-labels">
+                        <span>Assets: <strong x-text="formatCurrency(summary?.assets ?? 0)"></strong></span>
+                        <span>Debts: <strong x-text="formatCurrency(summary?.liabilities ?? 0)"></strong></span>
+                      </div>
+                    </div>
+                    <canvas id="networthChart" style="height:160px;margin-top:12px"></canvas>
+                  </div>
+
+                  <!-- Next Best Action -->
+                  <div class="dash-card action-highlight">
+                    <div class="dash-card-header">
+                      <h4>⚡ Next Best Action</h4>
+                    </div>
+                    <div x-show="nextAction" class="action-body">
+                      <h5 x-text="nextAction?.title || 'Loading...'"></h5>
+                      <p x-text="nextAction?.description || ''"></p>
+                      <button class="btn" @click="nextAction?.action ? nextAction.action() : null" x-show="nextAction?.cta" x-text="nextAction?.cta"></button>
+                    </div>
+                  </div>
+
+                  <!-- Goals Progress -->
+                  <div class="dash-card goals-list">
+                    <div class="dash-card-header">
+                      <h4>🎯 Goals</h4>
+                    </div>
+                    <template x-for="goal in familyData?.goals || []" :key="goal.id">
+                      <div class="goal-row">
+                        <div class="goal-info">
+                          <span class="goal-name" x-text="goal.description"></span>
+                          <span class="goal-meta" x-text="formatCurrency(goal.current_amount) + ' / ' + formatCurrency(goal.target_amount)"></span>
+                        </div>
+                        <div class="goal-track">
+                          <div class="goal-fill" :style="`width:${Math.min(100, (goal.target_amount > 0 ? (goal.current_amount / goal.target_amount * 100) : 0))}%`"></div>
+                        </div>
+                      </div>
+                    </template>
+                    <div x-show="!(familyData?.goals?.length)" class="empty-state-small">
+                      <p>No goals yet. <a href="#" @click.prevent="go('plan')">Add one</a>.</p>
+                    </div>
+                  </div>
+
+                  <!-- Cash Flow -->
+                  <div class="dash-card">
+                    <div class="dash-card-header">
+                      <h4>📈 Monthly Cash Flow</h4>
+                    </div>
+                    <canvas id="cashflowChart" style="height:180px"></canvas>
+                    <div class="cashflow-summary">
+                      <div><span class="dot income"></span> Income: <strong x-text="formatCurrency(summary?.totalIncome ?? 0)"></strong></div>
+                      <div><span class="dot expense"></span> Expenses: <strong x-text="formatCurrency(summary?.totalExpenses ?? 0)"></strong></div>
+                      <div><span class="dot savings"></span> Savings rate: <strong x-text="(summary?.savingsRate ?? 0) + '%'"></strong></div>
+                    </div>
+                  </div>
+
+                  <!-- Accounts -->
+                  <div class="dash-card">
+                    <div class="dash-card-header">
+                      <h4>📥 Accounts</h4>
+                      <button class="btn-small" @click="openAddAccount()">+ Add</button>
+                    </div>
+                    <div class="table-responsive">
+                      <table class="data-table">
+                        <tbody>
+                          <template x-for="acc in familyData?.accounts || []" :key="acc.id">
+                            <tr>
+                              <td><strong x-text="acc.type"></strong></td>
+                              <td x-text="acc.institution"></td>
+                              <td class="num" x-text="formatCurrency(acc.balance)"></td>
+                            </tr>
+                          </template>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- Debts -->
+                  <div class="dash-card">
+                    <div class="dash-card-header">
+                      <h4>📤 Debts</h4>
+                      <button class="btn-small" @click="openAddDebt()">+ Add</button>
+                    </div>
+                    <div class="table-responsive">
+                      <table class="data-table">
+                        <tbody>
+                          <template x-for="debt in familyData?.debts || []" :key="debt.id">
+                            <tr>
+                              <td><strong x-text="debt.type"></strong></td>
+                              <td x-text="debt.interest_rate + '%'"></td>
+                              <td class="num" x-text="formatCurrency(debt.balance)"></td>
+                            </tr>
+                          </template>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PLAN PAGE (edit wizard answers) -->
+              <div x-show="currentPage === 'plan'" style="max-width:800px">
+                <h2>🎯 My Plan</h2>
+                <p class="lead">Review and update your goals, accounts, and household details.</p>
+
+                <div class="plan-section">
+                  <h3>Household</h3>
+                  <p x-text="(familyData?.name || '') + ' — ' + (familyData?.location || '')"></p>
+                  <template x-for="m in familyData?.members || []" :key="m.id">
+                    <div class="member-chip">
+                      <span x-text="m.name"></span>
+                      <span class="meta" x-text="m.role + (m.age ? ', ' + m.age + 'y' : '')"></span>
+                    </div>
+                  </template>
+                </div>
+
+                <div class="plan-section">
+                  <h3>Goals</h3>
+                  <template x-for="g in familyData?.goals || []" :key="g.id">
+                    <div class="goal-edit-row">
+                      <input type="text" x-model="g.description" style="flex:1" @change="updateGoal(g)">
+                      <input type="number" x-model="g.target_amount" style="width:120px" @change="updateGoal(g)">
+                      <input type="number" x-model="g.current_amount" style="width:120px" @change="updateGoal(g)">
+                    </div>
+                  </template>
+                </div>
+
+                <div class="plan-section">
+                  <h3>Quick Calculators</h3>
+                  <div class="tool-grid">
+                    <button class="tool-tile" @click="openTaxCalc()">📊 Tax Planner</button>
+                    <button class="tool-tile" @click="openRetirementCalc()">👴 Retirement</button>
+                    <button class="tool-tile" @click="openMortgageCalc()">🏠 Mortgage vs Invest</button>
+                    <button class="tool-tile" @click="openFHSA()">🏡 FHSA Check</button>
+                    <button class="tool-tile" @click="openMonteCarlo()">🎲 Monte Carlo</button>
+                    <button class="tool-tile" @click="openDebtStrategy()">📉 Debt Strategy</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TOOLS PAGE -->
+              <div x-show="currentPage === 'tools'" style="max-width:800px">
+                <h2>🧮 Financial Tools</h2>
+                <p class="lead">Run what-if scenarios and explore your options.</p>
+                <div class="tool-grid" style="margin-top:24px">
+                  <button class="tool-tile" @click="openTaxCalc()">📊 Tax Planner<br><small>See your marginal rate and refunds</small></button>
+                  <button class="tool-tile" @click="openRetirementCalc()">👴 Retirement Simulator<br><small>Project your retirement income</small></button>
+                  <button class="tool-tile" @click="openMortgageCalc()">🏠 Mortgage vs Invest<br><small>Should you prepay or invest?</small></button>
+                  <button class="tool-tile" @click="openFHSA()">🏡 FHSA Checker<br><small>First home savings eligibility</small></button>
+                  <button class="tool-tile" @click="openMonteCarlo()">🎲 Monte Carlo<br><small>Probability of retirement success</small></button>
+                  <button class="tool-tile" @click="openDebtStrategy()">📉 Debt Strategy<br><small>Avalanche vs snowball</small></button>
+                </div>
+              </div>
+            </div>
+          </div>
         </main>
       </div>
-    </template>
-
-    <div class="toast-container" id="toast-container" role="status" aria-live="polite"></div>
+    </div>
   </div>
 
+  <div class="toast-container" id="toast-container" role="status" aria-live="polite"></div>
+
+  <script>
+    (function() {
+      var auth = document.getElementById('auth-screen');
+      var shell = document.getElementById('app-shell');
+      if (auth) auth.style.display = '';
+      if (shell) shell.style.display = 'none';
+    })();
+  </script>
   <script src="/js/api.js"></script>
-  <script src="/js/router.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

@@ -4,34 +4,34 @@
 
 const API = {
   base: '',
-  _currentController: null as AbortController | null,
+  _currentController: null,
 
-  _headers(contentType?: boolean): Record<string, string> {
-    const h: Record<string, string> = {};
+  _headers(contentType) {
+    const h = {};
     const csrf = this._getCsrfToken();
     if (csrf) h['X-CSRF-Token'] = csrf;
     if (contentType) h['Content-Type'] = 'application/json';
     return h;
   },
 
-  _getCsrfToken(): string | null {
+  _getCsrfToken() {
     const match = document.cookie.match(/csrf_token=([^;]+)/);
     return match ? match[1] : null;
   },
 
-  _createAbortController(): AbortController {
+  _createAbortController() {
     if (this._currentController) this._currentController.abort();
     this._currentController = new AbortController();
     return this._currentController;
   },
 
-  async _fetch(path: string, options: RequestInit = {}): Promise<unknown> {
+  async _fetch(path, options = {}) {
     const controller = this._createAbortController();
     const csrf = this._getCsrfToken();
 
     options.headers = { ...(options.headers || {}) };
     if (csrf) {
-      (options.headers as Record<string, string>)['X-CSRF-Token'] = csrf;
+      options.headers['X-CSRF-Token'] = csrf;
     }
     options.credentials = 'include';
     options.signal = controller.signal;
@@ -39,9 +39,9 @@ const API = {
     const r = await fetch(this.base + path, options);
 
     if (!r.ok) {
-      let msg: string;
+      let msg;
       try {
-        const body = await r.json() as { error?: string; message?: string };
+        const body = await r.json();
         msg = body.error || body.message || r.statusText;
       } catch {
         if (r.status === 401) {
@@ -60,11 +60,11 @@ const API = {
     return r.text();
   },
 
-  async get(path: string): Promise<unknown> {
+  async get(path) {
     return this._fetch(path);
   },
 
-  async post(path: string, body: unknown): Promise<unknown> {
+  async post(path, body) {
     return this._fetch(path, {
       method: 'POST',
       headers: this._headers(true),
@@ -72,7 +72,7 @@ const API = {
     });
   },
 
-  async put(path: string, body: unknown): Promise<unknown> {
+  async put(path, body) {
     return this._fetch(path, {
       method: 'PUT',
       headers: this._headers(true),
@@ -80,11 +80,11 @@ const API = {
     });
   },
 
-  async del(path: string): Promise<unknown> {
+  async del(path) {
     return this._fetch(path, { method: 'DELETE' });
   },
 
-  isAuthenticated(): boolean {
+  isAuthenticated() {
     return document.cookie.includes('token=');
   },
 };
