@@ -42,8 +42,7 @@ const API = {
           msg = r.statusText || `HTTP ${r.status}`;
         }
         if (r.status === 401) {
-          window.location.reload();
-          throw new Error('Session expired. Please log in again.');
+          throw new Error('Not authenticated');
         }
         const err = new Error(msg || `HTTP ${r.status}`);
         err.status = r.status;
