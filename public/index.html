@@ -13,7 +13,7 @@
   <title>WealthBuilder — Family Financial Planner</title>
   <link rel="stylesheet" href="/css/styles.css">
   <style>[x-cloak] { display: none !important; }</style>
-  <script>
+  <script nonce="{{CSP_NONCE}}">
     (function() {
       var theme = localStorage.getItem('theme') || 'dark';
       document.documentElement.setAttribute('data-theme', theme);
@@ -97,10 +97,12 @@
             <li><a href="#/dashboard" :class="{ active: currentPage === 'dashboard' }" @click.prevent="go('dashboard')"><span class="nav-icon">📊</span> Dashboard</a></li>
             <li><a href="#/plan" :class="{ active: currentPage === 'plan' }" @click.prevent="go('plan')"><span class="nav-icon">🎯</span> My Plan</a></li>
             <li><a href="#/tools" :class="{ active: currentPage === 'tools' }" @click.prevent="go('tools')"><span class="nav-icon">🧮</span> Tools</a></li>
+            <li><a href="#/settings" :class="{ active: currentPage === 'settings' }" @click.prevent="go('settings')"><span class="nav-icon">⚙️</span> Settings</a></li>
           </ul>
 
           <div class="sidebar-footer no-print">
-            <button class="btn-secondary" style="width:100%;margin-bottom:10px" @click="window.print()">📄 Export PDF</button>
+            <button class="btn-secondary" style="width:100%;margin-bottom:10px" @click="downloadWealthReport()">📄 Wealth Report</button>
+            <button class="btn-secondary" style="width:100%;margin-bottom:10px" @click="window.print()">📄 Print View</button>
             <button class="btn-secondary" style="width:100%" @click="logout()">🚪 Sign Out</button>
           </div>
         </nav>
@@ -321,6 +323,25 @@
                 </div>
 
                 <div class="dashboard-grid">
+                  <!-- Health Score Card -->
+                  <div class="dash-card health-score">
+                    <div class="dash-card-header">
+                      <h4>❤️ Financial Health</h4>
+                      <span class="health-value" :class="getHealthClass(summary?.health?.score)" x-text="(summary?.health?.score || 0) + '%'"></span>
+                    </div>
+                    <div class="health-meter">
+                        <div class="meter-track"><div class="meter-fill" :class="getHealthClass(summary?.health?.score)" :style="`width:${summary?.health?.score || 0}%`"></div></div>
+                    </div>
+                    <div class="health-categories">
+                        <template x-for="(val, cat) in summary?.health?.categories || {}">
+                            <div class="health-cat">
+                                <span x-text="cat.charAt(0).toUpperCase() + cat.slice(1)"></span>
+                                <div class="cat-bar"><div class="cat-fill" :style="`width:${val}%`" :class="getHealthClass(val)"></div></div>
+                            </div>
+                        </template>
+                    </div>
+                  </div>
+
                   <!-- Net Worth Card -->
                   <div class="dash-card networth">
                     <div class="dash-card-header">
@@ -465,7 +486,50 @@
                     <button class="tool-tile" @click="openFHSA()">🏡 FHSA Check</button>
                     <button class="tool-tile" @click="openMonteCarlo()">🎲 Monte Carlo</button>
                     <button class="tool-tile" @click="openDebtStrategy()">📉 Debt Strategy</button>
+                    <button class="tool-tile" @click="openScenarioCompare()" style="background:var(--primary-light);color:var(--primary)">🌓 Comparison</button>
                   </div>
+                </div>
+              </div>
+
+                </div>
+              </div>
+
+              <!-- SETTINGS PAGE -->
+              <div x-show="currentPage === 'settings'" style="max-width:800px">
+                <h2>⚙️ Settings</h2>
+                <p class="lead">Manage your account and security settings.</p>
+
+                <div class="plan-section">
+                    <h3>🔐 Security</h3>
+                    <div class="card">
+                        <div class="flex-row" style="justify-content:space-between;align-items:center">
+                            <div>
+                                <strong>Multi-Factor Authentication (MFA)</strong>
+                                <p class="text-sm">Secure your account with a secondary code.</p>
+                            </div>
+                            <button class="btn" @click="setupMfa()" x-show="!mfaEnabled">Setup MFA</button>
+                            <span class="badge success" x-show="mfaEnabled">Enabled</span>
+                        </div>
+
+                        <div x-show="showMfaSetup" class="mfa-setup-box" style="margin-top:16px;padding:16px;background:var(--bg);border-radius:8px">
+                            <p>1. Scan this QR code with your Authenticator app:</p>
+                            <img :src="mfaQrCode" style="margin:16px auto;display:block;border:8px solid white">
+                            <p>2. Enter the 6-digit code to verify:</p>
+                            <div class="flex-row" style="gap:8px;margin-top:8px">
+                                <input type="text" x-model="mfaToken" placeholder="000000" style="width:120px">
+                                <button class="btn" @click="verifyMfa()">Verify & Enable</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="plan-section">
+                    <h3>📥 Data Management</h3>
+                    <div class="tool-grid">
+                        <button class="tool-tile" @click="$refs.csvInput.click()">📄 Import Budget CSV</button>
+                        <input type="file" x-ref="csvInput" style="display:none" accept=".csv" @change="handleCsvImport($event, 'budget')">
+                        <button class="tool-tile" @click="openImport('accounts')">🏦 Import Accounts (API)</button>
+                    </div>
                 </div>
               </div>
 
@@ -480,6 +544,7 @@
                   <button class="tool-tile" @click="openFHSA()">🏡 FHSA Checker<br><small>First home savings eligibility</small></button>
                   <button class="tool-tile" @click="openMonteCarlo()">🎲 Monte Carlo<br><small>Probability of retirement success</small></button>
                   <button class="tool-tile" @click="openDebtStrategy()">📉 Debt Strategy<br><small>Avalanche vs snowball</small></button>
+                  <button class="tool-tile" @click="openScenarioCompare()" style="background:var(--primary-light);color:var(--primary)">🌓 What-If Comparison<br><small>Compare two financial futures</small></button>
                 </div>
               </div>
             </div>

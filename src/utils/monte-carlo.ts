@@ -1,204 +1,84 @@
-export interface MonteCarloParams {
-  currentPortfolio?: number;
-  monthlyContribution?: number;
-  monthlyWithdrawal?: number;
-  yearsToRetirement?: number;
-  yearsInRetirement?: number;
-  expectedReturn?: number;
-  volatility?: number;
-  inflation?: number;
-  numSimulations?: number;
+// #18: Monte Carlo Engine with seeding support for reproducible results
+export interface SimulationOptions {
+    initialAmount: number;
+    monthlyContribution: number;
+    years: number;
+    expectedReturn: number;
+    volatility?: number;
+    simulations?: number;
+    seed?: number;
 }
 
-export interface MonteCarloResult {
-  params: MonteCarloParams;
-  summary: any;
-  interpretation: any[];
-  samplePaths: { success: any[]; failure: any[] };
-  yearlyProjections: any[];
+export interface SimulationResult {
+    percentiles: Record<string, number>;
+    successRate: number;
+    medianEndValue: number;
+    years: number;
+    seed?: number;
 }
 
 export class MonteCarloEngine {
-  static simulate(params: MonteCarloParams): MonteCarloResult {
-    const {
-      currentPortfolio = 100000,
-      monthlyContribution = 1500,
-      monthlyWithdrawal = 5000,
-      yearsToRetirement = 27,
-      yearsInRetirement = 25,
-      expectedReturn = 7,
-      volatility = 12,
-      inflation = 2.5,
-      numSimulations = 10_000,
-    } = params;
+    // Simple mulberry32 seeded PRNG
+    private static mulberry32(a: number) {
+        return function() {
+            let t = (a += 0x6D2B79F5);
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
 
-    if (currentPortfolio < 0) throw new Error('Current portfolio cannot be negative');
-    if (monthlyContribution < 0) throw new Error('Monthly contribution cannot be negative');
-    if (monthlyWithdrawal < 0) throw new Error('Monthly withdrawal cannot be negative');
-    if (yearsToRetirement <= 0) throw new Error('Years to retirement must be positive');
-    if (yearsInRetirement <= 0) throw new Error('Years in retirement must be positive');
+    private static getNormalRandom(randomFunc: () => number): number {
+        let u = 0, v = 0;
+        while (u === 0) u = randomFunc();
+        while (v === 0) v = randomFunc();
+        return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    }
 
-    const monthlyReturnMean = expectedReturn / 100 / 12;
-    const monthlyVolatility = volatility / 100 / Math.sqrt(12);
-    const monthlyInflation = inflation / 100 / 12;
-    const totalMonths = (yearsToRetirement + yearsInRetirement) * 12;
-    const accumulationMonths = yearsToRetirement * 12;
+    public static simulate(options: SimulationOptions): SimulationResult {
+        const {
+            initialAmount,
+            monthlyContribution,
+            years,
+            expectedReturn,
+            volatility = 15,
+            simulations = 1000,
+            seed = Math.floor(Math.random() * 1000000)
+        } = options;
 
-    let successCount = 0;
-    const finalValues: number[] = [];
-    const minValues: number[] = [];
-    const bankruptcies: any[] = [];
-    const successPaths: any[] = [];
-    const failurePaths: any[] = [];
+        const randomFunc = this.mulberry32(seed);
+        const results: number[] = [];
+        const monthlyReturn = expectedReturn / 100 / 12;
+        const monthlyVolatility = (volatility / 100) / Math.sqrt(12);
+        const months = years * 12;
 
-    for (let sim = 0; sim < numSimulations; sim++) {
-      let portfolio = currentPortfolio;
-      let minPortfolio = portfolio;
-      let wentBankrupt = false;
-      let bankruptcyMonth: number | null = null;
-      const path: number[] = [portfolio];
-
-      for (let month = 1; month <= totalMonths; month++) {
-        const randomReturn = this.generateNormalRandom(monthlyReturnMean, monthlyVolatility);
-        if (month <= accumulationMonths) {
-          portfolio = portfolio * (1 + randomReturn) + monthlyContribution;
-        } else {
-          const monthsInRetirement = month - accumulationMonths;
-          const inflationFactor = Math.pow(1 + monthlyInflation, monthsInRetirement);
-          const adjustedWithdrawal = monthlyWithdrawal * inflationFactor;
-          portfolio = portfolio * (1 + randomReturn) - adjustedWithdrawal;
+        for (let i = 0; i < simulations; i++) {
+            let balance = initialAmount;
+            for (let m = 0; m < months; m++) {
+                // Geometric Brownian Motion approximation
+                const randomReturn = monthlyReturn + (monthlyVolatility * this.getNormalRandom(randomFunc));
+                balance = balance * (1 + randomReturn) + monthlyContribution;
+                if (balance < 0) balance = 0;
+            }
+            results.push(balance);
         }
-        path.push(portfolio);
-        if (portfolio < minPortfolio) minPortfolio = portfolio;
-        if (portfolio <= 0 && !wentBankrupt) {
-          wentBankrupt = true;
-          bankruptcyMonth = month;
-          portfolio = 0;
-        }
-      }
 
-      const isSuccess = portfolio > 0;
-      if (isSuccess) successCount++;
-      finalValues.push(portfolio);
-      minValues.push(minPortfolio);
-      if (wentBankrupt) bankruptcies.push({ bankruptcyMonth, finalValue: portfolio });
-      if (sim % 100 === 0) {
-        if (isSuccess && successPaths.length < 50) {
-          successPaths.push(path.filter((_: any, i: number) => i % 12 === 0));
-        } else if (!isSuccess && failurePaths.length < 50) {
-          failurePaths.push(path.filter((_: any, i: number) => i % 12 === 0));
-        }
-      }
+        results.sort((a, b) => a - b);
+
+        const getPercentile = (p: number) => results[Math.floor(results.length * p)];
+        
+        return {
+            percentiles: {
+                '10th': Math.round(getPercentile(0.1)),
+                '25th': Math.round(getPercentile(0.25)),
+                '50th': Math.round(getPercentile(0.5)),
+                '75th': Math.round(getPercentile(0.75)),
+                '90th': Math.round(getPercentile(0.9)),
+            },
+            medianEndValue: Math.round(getPercentile(0.5)),
+            successRate: Math.round((results.filter(v => v > 0).length / simulations) * 100),
+            years,
+            seed
+        };
     }
-
-    const sortedFinal = [...finalValues].sort((a, b) => a - b);
-    const successRate = successCount / numSimulations;
-
-    return {
-      params,
-      summary: {
-        numSimulations,
-        successCount,
-        successRate: Math.round(successRate * 10000) / 100,
-        failureRate: Math.round((1 - successRate) * 10000) / 100,
-        medianFinalValue: Math.round(sortedFinal[Math.floor(numSimulations * 0.5)]),
-        percentile10: Math.round(sortedFinal[Math.floor(numSimulations * 0.1)]),
-        percentile25: Math.round(sortedFinal[Math.floor(numSimulations * 0.25)]),
-        percentile75: Math.round(sortedFinal[Math.floor(numSimulations * 0.75)]),
-        percentile90: Math.round(sortedFinal[Math.floor(numSimulations * 0.9)]),
-        meanFinalValue: Math.round(finalValues.reduce((a, b) => a + b, 0) / numSimulations),
-        minFinalValue: Math.round(Math.min(...sortedFinal)),
-        maxFinalValue: Math.round(Math.max(...sortedFinal)),
-        medianMinPortfolio: Math.round(minValues.sort((a, b) => a - b)[Math.floor(numSimulations * 0.5)]),
-        bankruptcies: bankruptcies.length,
-      },
-      interpretation: this.interpretResults(successRate, sortedFinal[Math.floor(numSimulations * 0.5)], monthlyWithdrawal * 12, params),
-      samplePaths: {
-        success: successPaths.slice(0, 5),
-        failure: failurePaths.slice(0, 5),
-      },
-      yearlyProjections: this.generateYearlyProjections(currentPortfolio, monthlyContribution, yearsToRetirement, expectedReturn, monthlyWithdrawal, yearsInRetirement),
-    };
-  }
-
-  private static generateNormalRandom(mean: number, stdDev: number): number {
-    let u = 0, v = 0;
-    while (u === 0) u = Math.random();
-    while (v === 0) v = Math.random();
-    const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-    return z * stdDev + mean;
-  }
-
-  private static generateYearlyProjections(currentPortfolio: number, monthlyContribution: number, yearsToRetirement: number, expectedReturn: number, monthlyWithdrawal: number, yearsInRetirement: number) {
-    const projections: any[] = [];
-    let portfolio = currentPortfolio;
-    const annualReturn = expectedReturn / 100;
-    for (let year = 1; year <= yearsToRetirement; year++) {
-      portfolio = portfolio * (1 + annualReturn) + (monthlyContribution * 12);
-      projections.push({
-        year,
-        age: 38 + year,
-        phase: 'accumulation',
-        portfolio: Math.round(portfolio),
-        contribution: monthlyContribution * 12,
-        withdrawal: 0,
-      });
-    }
-    for (let year = 1; year <= yearsInRetirement; year++) {
-      portfolio = portfolio * (1 + annualReturn) - (monthlyWithdrawal * 12);
-      projections.push({
-        year: yearsToRetirement + year,
-        age: 38 + yearsToRetirement + year,
-        phase: 'withdrawal',
-        portfolio: Math.round(Math.max(0, portfolio)),
-        contribution: 0,
-        withdrawal: monthlyWithdrawal * 12,
-      });
-    }
-    return projections;
-  }
-
-  private static interpretResults(successRate: number, medianFinal: number, annualSpending: number, _params: MonteCarloParams) {
-    const interpretations: any[] = [];
-    if (successRate >= 0.95) {
-      interpretations.push({
-        level: 'excellent',
-        title: 'Excellent Outlook (95%+ success)',
-        description: 'Your plan has a very high probability of success. You could consider: increasing retirement spending, retiring earlier, or leaving a larger legacy.',
-      });
-    } else if (successRate >= 0.80) {
-      interpretations.push({
-        level: 'good',
-        title: 'Good Outlook (80-95% success)',
-        description: "Your plan is likely to succeed, but there's meaningful risk. Consider: slightly higher savings, delaying retirement 1-2 years, or reducing withdrawal rate to 3.5%.",
-      });
-    } else if (successRate >= 0.60) {
-      interpretations.push({
-        level: 'fair',
-        title: 'Fair Outlook (60-80% success)',
-        description: 'Significant risk of outliving your money. Recommended actions: increase monthly savings by 20%+, delay retirement, or reduce retirement spending by 15%.',
-      });
-    } else {
-      interpretations.push({
-        level: 'poor',
-        title: 'Poor Outlook (<60% success)',
-        description: 'High probability of financial shortfall in retirement. Major adjustments needed: significantly increase savings, consider working to 70+, reduce retirement lifestyle expectations.',
-      });
-    }
-    if (medianFinal > annualSpending * 5) {
-      interpretations.push({
-        level: 'positive',
-        title: 'Legacy Potential',
-        description: `Median final portfolio ($${Math.round(medianFinal).toLocaleString()}) exceeds 5x annual spending. You're likely to leave a substantial inheritance.`,
-      });
-    }
-    interpretations.push({
-      level: 'info',
-      title: 'Sensitivity Analysis',
-      description: `Success rate if returns are 2% lower: ~${Math.round(Math.max(0, successRate - 0.15) * 100)}%. If returns are 2% higher: ~${Math.round(Math.min(1, successRate + 0.10) * 100)}%. Investment returns are the single biggest variable.`,
-    });
-    return interpretations;
-  }
 }
-
-export default MonteCarloEngine;

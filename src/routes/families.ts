@@ -29,7 +29,8 @@ router.get('/', async (req: Request, res: Response) => {
             [req.userId]
         );
         sendSuccess(res, families);
-    } catch (err: any) {
+    } catch (err) {
+        console.error('Fetch families error:', err);
         sendError(res, 'An error occurred while fetching families', 500);
     }
 });
@@ -48,11 +49,13 @@ router.post('/', validateBody(createSchema), async (req: Request, res: Response)
             [req.userId, name, slug, location ?? null, tax_situation ?? null]
         );
         sendSuccess(res, { id: result.lastID, name, slug, location: location ?? null, tax_situation: tax_situation ?? null });
-    } catch (err: any) {
+    } catch (err) {
+        console.error('Create family error:', err);
         sendError(res, 'An error occurred while creating the family', 500);
     }
 });
 
+// #14: Add pagination + sub-resource limits for the family detail endpoint
 router.get('/:slug', async (req: Request, res: Response) => {
     try {
         const family = await queries.get<any>(
@@ -62,20 +65,30 @@ router.get('/:slug', async (req: Request, res: Response) => {
 
         if (!family) return sendError(res, 'Family not found', 404);
 
+        const paginationSchema = z.object({
+            budget_limit: z.string().optional().default('24'),
+            snapshot_limit: z.string().optional().default('24'),
+        });
+        const parsed = paginationSchema.safeParse(req.query);
+        const budgetLimit = parsed.success ? Math.min(120, Math.max(1, parseInt(parsed.data.budget_limit, 10))) : 24;
+        const snapshotLimit = parsed.success ? Math.min(60, Math.max(1, parseInt(parsed.data.snapshot_limit, 10))) : 24;
+
         const id = family.id;
         family.members = await queries.all('SELECT * FROM members WHERE family_id = ?', [id]);
         family.accounts = await queries.all('SELECT * FROM accounts WHERE family_id = ?', [id]);
         family.debts = await queries.all('SELECT * FROM debts WHERE family_id = ?', [id]);
         family.insurance = await queries.all('SELECT * FROM insurance WHERE family_id = ?', [id]);
         family.goals = await queries.all('SELECT * FROM goals WHERE family_id = ? ORDER BY priority', [id]);
-        family.budget = await queries.all('SELECT * FROM budget_entries WHERE family_id = ? ORDER BY month_year DESC', [id]);
+        // #14: Limit budget entries and snapshots
+        family.budget = await queries.all('SELECT * FROM budget_entries WHERE family_id = ? ORDER BY month_year DESC LIMIT ?', [id, budgetLimit]);
         family.actions = await queries.all('SELECT * FROM action_items WHERE family_id = ? ORDER BY phase', [id]);
         family.milestones = await queries.all('SELECT * FROM milestones WHERE family_id = ?', [id]);
         family.recurring = await queries.all('SELECT * FROM recurring_items WHERE family_id = ? AND active = 1', [id]);
-        family.snapshots = await queries.all('SELECT * FROM net_worth_snapshots WHERE family_id = ? ORDER BY snapshot_date DESC LIMIT 24', [id]);
+        family.snapshots = await queries.all('SELECT * FROM net_worth_snapshots WHERE family_id = ? ORDER BY snapshot_date DESC LIMIT ?', [id, snapshotLimit]);
 
         sendSuccess(res, family);
-    } catch (err: any) {
+    } catch (err) {
+        console.error('Fetch family error:', err);
         sendError(res, 'An error occurred while fetching the family', 500);
     }
 });
@@ -107,7 +120,8 @@ router.put('/:slug', validateBody(updateSchema), async (req: Request, res: Respo
         values.push(req.params.slug, req.userId);
         await queries.run(`UPDATE families SET ${updates.join(', ')} WHERE slug = ? AND user_id = ?`, values);
         sendSuccess(res, { updated: true });
-    } catch (err: any) {
+    } catch (err) {
+        console.error('Update family error:', err);
         sendError(res, 'An error occurred while updating the family', 500);
     }
 });
@@ -122,7 +136,8 @@ router.delete('/:slug', async (req: Request, res: Response) => {
             req.userId,
         ]);
         sendSuccess(res, { deleted: true });
-    } catch (err: any) {
+    } catch (err) {
+        console.error('Delete family error:', err);
         sendError(res, 'An error occurred while deleting the family', 500);
     }
 });

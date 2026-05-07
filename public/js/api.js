@@ -5,6 +5,20 @@
 const API = {
   base: '',
   timeout: 12000,
+  _csrfToken: sessionStorage.getItem('csrf_token') || null,
+
+  setCsrfToken(token) {
+    this._csrfToken = token;
+    if (token) {
+      sessionStorage.setItem('csrf_token', token);
+    } else {
+      sessionStorage.removeItem('csrf_token');
+    }
+  },
+
+  _getCsrfToken() {
+    return this._csrfToken;
+  },
 
   _headers(contentType) {
     const h = {};
@@ -14,11 +28,6 @@ const API = {
     return h;
   },
 
-  _getCsrfToken() {
-    const match = document.cookie.match(/csrf_token=([^;]+)/);
-    return match ? match[1] : null;
-  },
-
   async _fetch(path, options = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), options.timeout || this.timeout);
@@ -26,6 +35,7 @@ const API = {
     const csrf = this._getCsrfToken();
     options.headers = { ...(options.headers || {}) };
     if (csrf) options.headers['X-CSRF-Token'] = csrf;
+    
     options.credentials = 'include';
     options.signal = controller.signal;
 
@@ -42,6 +52,7 @@ const API = {
           msg = r.statusText || `HTTP ${r.status}`;
         }
         if (r.status === 401) {
+          this.setCsrfToken(null);
           throw new Error('Not authenticated');
         }
         const err = new Error(msg || `HTTP ${r.status}`);
@@ -52,7 +63,12 @@ const API = {
 
       const contentType = r.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
-        return r.json();
+        const data = await r.json();
+        // If the response contains a new CSRF token, store it
+        if (data && data.data && data.data.csrfToken) {
+          this.setCsrfToken(data.data.csrfToken);
+        }
+        return data;
       }
       return r.text();
     } catch (err) {
@@ -92,6 +108,9 @@ const API = {
   },
 
   async del(path) {
-    return this._fetch(path, { method: 'DELETE' });
+    return this._fetch(path, { 
+      method: 'DELETE',
+      headers: this._headers(false) 
+    });
   },
 };

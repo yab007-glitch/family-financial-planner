@@ -786,3 +786,20 @@ button, a, input, select, textarea { touch-action: manipulation; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Financial Health Score Styles */
+.health-value.good { color: var(--success); }
+.health-value.fair { color: var(--warning); }
+.health-value.poor { color: var(--error); }
+.meter-track { height: 8px; background: var(--bg-light); border-radius: 4px; overflow: hidden; margin: 12px 0; }
+.meter-fill { height: 100%; transition: width 0.8s ease; }
+.meter-fill.good { background: var(--success); }
+.meter-fill.fair { background: var(--warning); }
+.meter-fill.poor { background: var(--error); }
+.health-categories { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.health-cat { font-size: 0.75rem; color: var(--text-light); }
+.cat-bar { height: 4px; background: var(--bg-light); border-radius: 2px; margin-top: 2px; }
+.cat-fill { height: 100%; }
+.cat-fill.good { background: var(--success); }
+.cat-fill.fair { background: var(--warning); }
+.cat-fill.poor { background: var(--error); }

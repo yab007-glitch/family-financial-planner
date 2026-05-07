@@ -2,13 +2,14 @@ import { Router, Request, Response } from 'express';
 import queries from '../db/queries';
 import { validateFamilySlug } from '../middleware/familySlug';
 import { sendSuccess, sendError } from '../utils/response';
+import { WealthOptimizer } from '../services/wealthOptimizer';
 
 const router = Router({ mergeParams: true });
 router.use(validateFamilySlug);
 
 router.get('/', async (req: Request, res: Response) => {
     try {
-        const f = req.familyId;
+        const f = req.familyId!;
         
         const assetsRow = await queries.get<{ total: number }>('SELECT COALESCE(SUM(balance), 0) as total FROM accounts WHERE family_id = ?', [f]);
         const liabilitiesRow = await queries.get<{ total: number }>('SELECT COALESCE(SUM(balance), 0) as total FROM debts WHERE family_id = ?', [f]);
@@ -23,8 +24,8 @@ router.get('/', async (req: Request, res: Response) => {
         const totalExpenses = expenseRow?.total ?? 0;
         const savingsRate = totalIncome > 0 ? parseFloat(((totalIncome - totalExpenses) / totalIncome * 100).toFixed(2)) : 0;
 
-        // Auto-capture snapshot if it's a new month
-        const today = new Date().toISOString().slice(0, 7); // YYYY-MM
+        // Auto-capture snapshot
+        const today = new Date().toISOString().slice(0, 7);
         const existing = await queries.get('SELECT id FROM net_worth_snapshots WHERE family_id = ? AND snapshot_date = ?', [f, today]);
         if (!existing) {
             await queries.run(
@@ -38,6 +39,15 @@ router.get('/', async (req: Request, res: Response) => {
             [f]
         );
 
+        // Compute Health Score
+        const familyData = await queries.get<any>('SELECT * FROM families WHERE id = ?', [f]);
+        familyData.members = await queries.all('SELECT * FROM members WHERE family_id = ?', [f]);
+        familyData.accounts = await queries.all('SELECT * FROM accounts WHERE family_id = ?', [f]);
+        familyData.debts = await queries.all('SELECT * FROM debts WHERE family_id = ?', [f]);
+        familyData.goals = await queries.all('SELECT * FROM goals WHERE family_id = ?', [f]);
+
+        const health = new WealthOptimizer().calculateHealthScore(familyData);
+
         sendSuccess(res, {
             assets,
             liabilities,
@@ -47,9 +57,11 @@ router.get('/', async (req: Request, res: Response) => {
             savingsRate,
             debtToAssetRatio: assets > 0 ? parseFloat((liabilities / assets * 100).toFixed(2)) : 0,
             liquidAssets: liquidAssetsRow?.total ?? 0,
+            health
         });
-    } catch (err: any) {
-        sendError(res, err.message, 500);
+    } catch (err) {
+        console.error('Summary error:', err);
+        sendError(res, 'An error occurred while computing summary', 500);
     }
 });
 

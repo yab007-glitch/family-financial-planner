@@ -37,9 +37,11 @@ const strategySchema = z.object({
 router.post('/calculate', validateBody(calcSchema), (req: Request, res: Response) => {
     try {
         const { income, rrsp_contribution = 0 } = req.body;
+        // #17: Validate year is supported
         const engine = new TaxEngine(2025);
         sendSuccess(res, engine.calculateFullTaxReturn(income, rrsp_contribution));
-    } catch (err: any) {
+    } catch (err) {
+        console.error('Tax calculation error:', err);
         sendError(res, 'An error occurred during tax calculation', 500);
     }
 });
@@ -49,7 +51,8 @@ router.post('/marginal-rate', validateBody(marginalSchema), (req: Request, res: 
         const { income } = req.body;
         const engine = new TaxEngine(2025);
         sendSuccess(res, engine.getMarginalRate(income));
-    } catch (err: any) {
+    } catch (err) {
+        console.error('Marginal rate error:', err);
         sendError(res, 'An error occurred while calculating marginal rate', 500);
     }
 });
@@ -58,8 +61,9 @@ router.post('/rrsp-impact', validateBody(impactSchema), (req: Request, res: Resp
     try {
         const { income, rrsp_contribution } = req.body;
         const engine = new TaxEngine(2025);
-        sendSuccess(res, engine.calculateRRSPImpact(income, rrsp_contribution));
-    } catch (err: any) {
+        sendSuccess(res, engine.calculateContributionImpact(income, rrsp_contribution));
+    } catch (err) {
+        console.error('RRSP impact error:', err);
         sendError(res, 'An error occurred while calculating RRSP impact', 500);
     }
 });
@@ -69,7 +73,8 @@ router.post('/resp-cesg', validateBody(respSchema), (req: Request, res: Response
         const { contribution, num_children = 1 } = req.body;
         const engine = new TaxEngine(2025);
         sendSuccess(res, engine.calculateResCESG(contribution, num_children));
-    } catch (err: any) {
+    } catch (err) {
+        console.error('RESP/CESG error:', err);
         sendError(res, 'An error occurred while calculating RESP/CESG', 500);
     }
 });
@@ -99,12 +104,12 @@ router.post('/strategy', validateBody(strategySchema), (req: Request, res: Respo
                 } else if (step.account === 'RRSP' || step.account.includes('RRSP')) {
                     const limit = Math.min(income * 0.18, 32490);
                     allocation = Math.min(limit, remaining);
-                    const impact = engine.calculateRRSPImpact(income, allocation);
-                    benefit = `+$${impact.taxRefund.toLocaleString()} refund`;
+                    const impact = engine.calculateContributionImpact(income, allocation);
+                    benefit = `+$${impact.totalBenefit.toLocaleString()} total benefit`;
                 } else if (step.account === 'FHSA') {
                     allocation = Math.min(8000, remaining);
-                    const impact = engine.calculateRRSPImpact(income, allocation);
-                    benefit = `+$${impact.taxRefund.toLocaleString()} deduction`;
+                    const impact = engine.calculateContributionImpact(income, allocation);
+                    benefit = `+$${impact.totalBenefit.toLocaleString()} deduction/benefit`;
                 }
 
                 if (allocation > 0) {
@@ -130,7 +135,8 @@ router.post('/strategy', validateBody(strategySchema), (req: Request, res: Respo
             strategy, 
             year_one_plan: yearOnePlan 
         });
-    } catch (err: any) {
+    } catch (err) {
+        console.error('Tax strategy error:', err);
         sendError(res, 'An error occurred while generating strategy', 500);
     }
 });

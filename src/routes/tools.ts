@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import MortgageVsInvestCalculator from '../utils/mortgage-calculator';
-import { RetirementSimulator } from '../utils/retirement-simulator';
+import { RetirementSimulator } from '../services/retirementSimulator';
 import { MonteCarloEngine } from '../utils/monte-carlo';
 import FHSAChecker from '../utils/fhsa-checker';
 import ReportGenerator from '../utils/report-generator';
@@ -46,17 +46,18 @@ const monteCarloSchema = z.object({
     expectedReturn: z.number().min(0).max(100),
     volatility: z.number().min(0).max(100).optional(),
     simulations: z.number().int().min(100).max(100000).optional(),
+    seed: z.number().int().optional(), // #18: Accept seed for reproducible results
 });
 
 const fhsaSchema = z.object({
     income: z.number().min(0),
     age: z.number().int().min(18).max(100),
-    firstTimeBuyer: z.boolean().optional(),
+    firstTimeHomeBuyer: z.boolean().optional(),
 });
 
 const debtStrategySchema = z.object({
     debts: z.array(z.object({
-        name: z.string().min(1),
+        name: z.string().min(1).max(100),
         balance: z.number().positive(),
         interestRate: z.number().min(0).max(100),
         monthlyPayment: z.number().min(0),
@@ -64,18 +65,22 @@ const debtStrategySchema = z.object({
     extra_payment: z.number().min(0).optional(),
 });
 
+// #27: Fix goalPlanSchema to match GoalInput interface (use deadline + expectedReturn)
 const goalPlanSchema = z.object({
     targetAmount: z.number().positive(),
     currentAmount: z.number().min(0),
     monthlyContribution: z.number().min(0),
-    annualReturn: z.number().min(0).max(100),
-    years: z.number().int().min(1).max(100),
+    annualReturn: z.number().min(0).max(100).optional(),
+    years: z.number().int().min(1).max(100).optional(),
+    deadline: z.string().optional(), // ISO date string
+    expectedReturn: z.number().min(0).max(100).optional(),
 });
 
 router.post('/mortgage-vs-invest', validateBody(mortgageSchema), (req: Request, res: Response) => {
     try {
         sendSuccess(res, MortgageVsInvestCalculator.compare(req.body));
     } catch (err) {
+        console.error('Mortgage comparison error:', err);
         sendError(res, 'An error occurred during mortgage comparison', 500);
     }
 });
@@ -84,6 +89,7 @@ router.post('/retirement-simulate', validateBody(retirementSchema), (req: Reques
     try {
         sendSuccess(res, new RetirementSimulator().simulateRetirement(req.body));
     } catch (err) {
+        console.error('Retirement simulation error:', err);
         sendError(res, 'An error occurred during retirement simulation', 500);
     }
 });
@@ -93,6 +99,7 @@ router.post('/retirement-readiness', validateBody(readinessSchema), (req: Reques
         const { currentAge, desiredRetirementAge, currentSavings, monthlyContribution, expectedReturn } = req.body;
         sendSuccess(res, RetirementSimulator.checkReadiness(currentAge, desiredRetirementAge, currentSavings, monthlyContribution, expectedReturn));
     } catch (err) {
+        console.error('Retirement readiness error:', err);
         sendError(res, 'An error occurred during readiness check', 500);
     }
 });
@@ -101,6 +108,7 @@ router.post('/monte-carlo', validateBody(monteCarloSchema), (req: Request, res: 
     try {
         sendSuccess(res, MonteCarloEngine.simulate(req.body));
     } catch (err) {
+        console.error('Monte Carlo error:', err);
         sendError(res, 'An error occurred during Monte Carlo simulation', 500);
     }
 });
@@ -109,6 +117,7 @@ router.post('/fhsa-check', validateBody(fhsaSchema), (req: Request, res: Respons
     try {
         sendSuccess(res, FHSAChecker.checkEligibility(req.body));
     } catch (err) {
+        console.error('FHSA check error:', err);
         sendError(res, 'An error occurred during FHSA eligibility check', 500);
     }
 });
@@ -118,14 +127,54 @@ router.post('/debt-strategy', validateBody(debtStrategySchema), (req: Request, r
         const { debts, extra_payment = 0 } = req.body;
         sendSuccess(res, compareStrategies(debts, extra_payment));
     } catch (err) {
+        console.error('Debt strategy error:', err);
         sendError(res, 'An error occurred during debt strategy calculation', 500);
     }
 });
 
+// #27: Fix goal plan to handle both (years) and (deadline + expectedReturn) formats
 router.post('/goal-plan', validateBody(goalPlanSchema), (req: Request, res: Response) => {
     try {
-        sendSuccess(res, calculateGoalPlan(req.body));
+        const { targetAmount, currentAmount } = req.body;
+        let monthlyContribution = req.body.monthlyContribution ?? 0;
+
+        // Support both old format (years) and new format (deadline + expectedReturn)
+        let years: number;
+        if (req.body.years) {
+            years = req.body.years;
+        } else if (req.body.deadline) {
+            const deadline = new Date(req.body.deadline);
+            const now = new Date();
+            years = (deadline.getFullYear() - now.getFullYear()) + (deadline.getMonth() - now.getMonth()) / 12;
+            if (years < 1) years = 1;
+        } else {
+            return sendError(res, 'Either "years" or "deadline" must be provided', 400);
+        }
+
+        const annualReturn = req.body.annualReturn ?? req.body.expectedReturn ?? 7;
+        const monthlyRate = annualReturn / 100 / 12;
+        const months = years * 12;
+        const fvFactor = Math.pow(1 + monthlyRate, months);
+
+        if (monthlyContribution === 0 && monthlyRate > 0) {
+            monthlyContribution = (targetAmount - (currentAmount * fvFactor)) / ((fvFactor - 1) / monthlyRate);
+        }
+
+        const totalContributed = currentAmount + (monthlyContribution * months);
+        const finalValue = (currentAmount * fvFactor) + (monthlyContribution * ((fvFactor - 1) / monthlyRate));
+        const totalGrowth = finalValue - totalContributed;
+
+        sendSuccess(res, {
+            monthlyContribution: Math.round(monthlyContribution * 100) / 100,
+            totalContributed: Math.round(totalContributed * 100) / 100,
+            totalGrowth: Math.round(totalGrowth * 100) / 100,
+            finalValue: Math.round(finalValue * 100) / 100,
+            isAchievable: monthlyContribution < (targetAmount / 12),
+            percentFromTarget: Math.round((currentAmount / targetAmount) * 10000) / 100,
+            years: Math.round(years * 10) / 10,
+        });
     } catch (err) {
+        console.error('Goal plan error:', err);
         sendError(res, 'An error occurred during goal plan calculation', 500);
     }
 });
@@ -133,7 +182,7 @@ router.post('/goal-plan', validateBody(goalPlanSchema), (req: Request, res: Resp
 router.get('/export-report', async (req: Request, res: Response) => {
     try {
         const { format = 'json' } = req.query;
-        const familyRaw = await queries.get<{ id: number; name: string }>('SELECT id, name, location FROM families WHERE slug = ?', [req.params.slug]);
+        const familyRaw = await queries.get<{ id: number; name: string; location: string }>('SELECT id, name, location FROM families WHERE slug = ?', [req.params.slug]);
         if (!familyRaw) return sendError(res, 'Family not found', 404);
 
         const family: any = { ...familyRaw };
@@ -155,6 +204,7 @@ router.get('/export-report', async (req: Request, res: Response) => {
         }
         sendSuccess(res, report);
     } catch (err) {
+        console.error('Export report error:', err);
         sendError(res, 'An error occurred while generating the report', 500);
     }
 });

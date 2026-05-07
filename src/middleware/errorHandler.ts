@@ -26,6 +26,7 @@ export function errorHandler(
         return;
     }
 
+    // #13: Never leak internal error details to the client
     console.error('💥 Unexpected error:', err);
     res.status(500).json({
         success: false,

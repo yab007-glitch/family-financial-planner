@@ -102,6 +102,87 @@ function appShell() {
     dashboardSubheadline: 'Loading your personalized insights...',
     isLoading: false,
 
+    /* === MFA === */
+    mfaEnabled: false,
+    showMfaSetup: false,
+    mfaQrCode: '',
+    mfaToken: '',
+
+    async setupMfa() {
+        this.isLoading = true;
+        try {
+            const res = await API.post('/api/auth/mfa/setup', {});
+            this.mfaQrCode = res.data.qrCodeUrl;
+            this.showMfaSetup = true;
+        } catch (err) { Toast.show(parseApiError(err), 'error'); }
+        finally { this.isLoading = false; }
+    },
+
+    async verifyMfa() {
+        if (!this.mfaToken) return;
+        this.isLoading = true;
+        try {
+            await API.post('/api/auth/mfa/verify', { token: this.mfaToken });
+            this.mfaEnabled = true;
+            this.showMfaSetup = false;
+            Toast.show('MFA enabled successfully!', 'success');
+        } catch (err) { Toast.show(parseApiError(err), 'error'); }
+        finally { this.isLoading = false; }
+    },
+
+    getHealthClass(score) {
+        if (!score) return '';
+        if (score >= 80) return 'good';
+        if (score >= 50) return 'fair';
+        return 'poor';
+    },
+
+    /* === Imports === */
+    async handleCsvImport(event, type) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        Toast.show(`Parsing ${file.name}...`, 'info');
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const text = e.target.result;
+                const lines = text.split('\n').filter(l => l.trim());
+                const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+                
+                const items = lines.slice(1).map(line => {
+                    const values = line.split(',').map(v => v.trim());
+                    const obj = {};
+                    headers.forEach((h, i) => obj[h] = values[i]);
+                    return obj;
+                });
+
+                // Mapping for budget: date -> month_year, amount, category
+                const mapped = items.map(item => ({
+                    monthYear: (item.date || item.month_year || new Date().toISOString()).slice(0,7),
+                    category: item.category || 'Uncategorized',
+                    amount: parseFloat(item.amount) || 0,
+                    type: (item.type || 'expense').toLowerCase()
+                }));
+
+                this.isLoading = true;
+                await API.post(`/api/families/${this.familySlug}/import`, { type, items: mapped });
+                Toast.show(`Imported ${mapped.length} items!`, 'success');
+                this.loadDashboard();
+            } catch (err) {
+                Toast.show('Failed to parse CSV. Ensure comma-separated format.', 'error');
+            } finally {
+                this.isLoading = false;
+                event.target.value = ''; // Reset input
+            }
+        };
+        reader.readAsText(file);
+    },
+
+    openImport(type) {
+        Toast.show('API bank sync (Plaid/Flinks) requires a developer key.', 'info');
+    },
+
     wizard: {
       familyName: '',
       province: 'QC',
@@ -526,6 +607,11 @@ function appShell() {
       finally { this.isLoading = false; }
     },
 
+    downloadWealthReport() {
+        if (!this.familySlug) return;
+        window.open(`/api/families/${this.familySlug}/reports/pdf`, '_blank');
+    },
+
     finishWizard() {
       this.showWizard = false;
       this.clearWizardDraft();
@@ -608,6 +694,33 @@ function appShell() {
         const res = await API.post(url, body);
         this.toolModalResult = res.data;
       } catch (err) { Toast.show(err.message || 'Tool failed', 'error'); }
+    },
+    openScenarioCompare() {
+        this.toolModalResult = null;
+        this.openToolModal('What-If Comparison', [
+            { key: 'name', label: 'Scenario Name', type: 'text', default: 'Aggressive Saving' },
+            { key: 'monthlyContribution', label: 'New Monthly Savings', type: 'number', default: 1500 },
+            { key: 'retirementAge', label: 'Retirement Age', type: 'number', default: 60 },
+            { key: 'expectedReturn', label: 'Annual Return %', type: 'number', default: 8 }
+        ], async (body) => {
+            const baseline = {
+                currentAge: 35,
+                retirementAge: 65,
+                currentSavings: 50000,
+                monthlyContribution: 500,
+                expectedReturn: 7
+            };
+            const res = await API.post(`/api/families/${this.familySlug}/scenarios/compare`, {
+                name: body.name,
+                modifications: {
+                    monthlyContribution: body.monthlyContribution,
+                    retirementAge: body.retirementAge,
+                    expectedReturn: body.expectedReturn
+                },
+                baseline
+            });
+            return res;
+        });
     }
   };
 }

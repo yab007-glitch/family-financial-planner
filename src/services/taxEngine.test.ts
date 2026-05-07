@@ -11,10 +11,10 @@ describe('TaxEngine 2025', () => {
         const rate = engine.getMarginalRate(80000);
         expect(rate.combined).toBe(0.3712); // Mid bracket
     });
-    it('calculates RRSP impact', () => {
-        const impact = engine.calculateRRSPImpact(80000, 10000);
-        expect(impact.taxRefund).toBeGreaterThan(2000);
-        expect(impact.effectiveRate).toBeGreaterThan(20);
+    it('calculates RRSP/Contribution impact', () => {
+        const impact = engine.calculateContributionImpact(80000, 10000);
+        expect(impact.totalBenefit).toBeGreaterThan(2000);
+        expect(impact.effectiveRecoveryRate).toBeGreaterThan(20);
     });
     it('returns optimal strategy with RESP first when children exist', () => {
         const strategy = engine.getOptimalSavingsOrder(80000, 38, 2);

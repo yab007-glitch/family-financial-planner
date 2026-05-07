@@ -47,7 +47,8 @@ router.post('/', validateBody(projectionSchema), (req: Request, res: Response) =
         const { principal, monthly_contribution, annual_rate, years } = req.body;
         const schedule = compoundInterestProjection(principal, monthly_contribution, annual_rate, years);
         sendSuccess(res, { schedule });
-    } catch (err: any) {
+    } catch (err) {
+        console.error('Projection error:', err);
         sendError(res, 'An error occurred during projection calculation', 500);
     }
 });
