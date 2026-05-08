@@ -842,6 +842,9 @@ button, a, input, select, textarea { touch-action: manipulation; }
 
 .text-danger { color: var(--danger); }
 .total-row { border-top: 2px solid var(--border); padding-top: 12px; margin-top: 4px; font-size: 1.1rem; }
+.strat-item { padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
+.strat-item.best { border-color: var(--success); background: rgba(16, 185, 129, 0.05); }
+
 .weight-600 { font-weight: 600; }
 .d-block { display: block; }
 .text-xs { font-size: 0.75rem; }

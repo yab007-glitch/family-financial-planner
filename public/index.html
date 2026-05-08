@@ -815,6 +815,27 @@
                       </div>
                     </div>
 
+                    <!-- Withdrawal Strategies (Phase 9) -->
+                    <div class="card">
+                      <h3>🏦 Extraction Strategies</h3>
+                      <p class="text-xs text-muted">Comparison of withdrawal orders in retirement.</p>
+                      <div class="flex-column" style="gap:12px; margin-top:16px">
+                        <template x-for="strat in insights?.withdrawals?.strategies">
+                          <div class="strat-item" :class="{ 'best': strat.name === insights?.withdrawals?.best?.name }">
+                            <div class="flex-row" style="justify-content:space-between">
+                                <span class="weight-600" x-text="strat.name"></span>
+                                <span class="badge success" x-show="strat.name === insights?.withdrawals?.best?.name">Winner</span>
+                            </div>
+                            <div class="text-xs" style="margin-top:4px">
+                                Lasts: <strong x-text="strat.yearsLasted + ' years'"></strong> | 
+                                Tax: <strong x-text="formatCurrency(strat.totalTax)"></strong>
+                            </div>
+                          </div>
+                        </template>
+                        <p class="text-xs italic" x-text="insights?.withdrawals?.recommendation" style="margin-top:8px"></p>
+                      </div>
+                    </div>
+
                     <!-- Tax Prep Automation (Phase 8) -->
                     <div class="card">
                       <h3>📅 Smart Tax Checklist</h3>
