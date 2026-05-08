@@ -304,6 +304,7 @@ function appShell() {
     },
 
     async initApp() {
+      window.__appState = this;
       this.restoreWizardState();
       try {
         const me = await API.get('/api/auth/me');
