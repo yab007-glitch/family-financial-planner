@@ -92,7 +92,8 @@ app.use(helmet({
             defaultSrc: ["'self'"],
             scriptSrc: ["'self'",
                 (req: any) => `'nonce-${req.res?.locals?.cspNonce || ''}'`,
-                "https://cdn.jsdelivr.net", // Alpine.js + Chart.js CDN fallback
+                "https://cdn.jsdelivr.net",
+                "'unsafe-eval'", // Alpine.js requires this for directives
             ],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"], // CSS-in-JS requires unsafe-inline
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
@@ -127,7 +128,7 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Path resolution for static files
 const publicPath = path.join(__dirname, '../public');
-app.use(express.static(publicPath));
+app.use(express.static(publicPath, { index: false }));
 
 // #5: Stricter rate limit for auth endpoints
 const authLimiter = rateLimit({
