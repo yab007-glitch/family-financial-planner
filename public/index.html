@@ -372,6 +372,9 @@
                         <span>Debts: <strong x-text="formatCurrency(summary?.liabilities ?? 0)"></strong></span>
                       </div>
                     </div>
+                    <div class="runway-chip" x-show="summary?.runway">
+                         🏃 Survival Runway: <strong x-text="summary.runway + ' days'"></strong>
+                    </div>
                     <canvas id="networthChart" style="height:160px;margin-top:12px"></canvas>
                   </div>
 

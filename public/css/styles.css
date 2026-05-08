@@ -848,3 +848,6 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .weight-600 { font-weight: 600; }
 .d-block { display: block; }
 .text-xs { font-size: 0.75rem; }
+
+/* Cash Flow & Runway Styles */
+.runway-chip { margin-top: 12px; padding: 6px 12px; background: rgba(59, 130, 246, 0.1); border-radius: 20px; font-size: 0.8rem; text-align: center; color: var(--primary); border: 1px solid rgba(59, 130, 246, 0.2); }

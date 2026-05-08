@@ -5,6 +5,7 @@ import { sendSuccess, sendError } from '../utils/response';
 import { WealthOptimizer } from '../services/wealthOptimizer';
 import { EstateAnalyzer } from '../services/estateAnalyzer';
 import { PulseService } from '../services/pulseService';
+import { CashFlowService } from '../services/cashFlowService';
 
 const router = Router({ mergeParams: true });
 router.use(validateFamilySlug);
@@ -52,6 +53,10 @@ router.get('/', async (req: Request, res: Response) => {
         
         // Family Pulse (Phase 6)
         const pulse = await PulseService.generateWeeklyPulse(f);
+        
+        const leakage = await CashFlowService.analyzeLeakage(f);
+        const runway = CashFlowService.calculateRunway(familyData, assets);
+        health.alerts.push(...leakage.map(l => ({ text: l.description, severity: l.severity })));
 
         // Comprehensive Estate Check
         const estate = EstateAnalyzer.analyzeInsuranceGap(familyData);
@@ -72,7 +77,8 @@ router.get('/', async (req: Request, res: Response) => {
             liquidAssets: liquidAssetsRow?.total ?? 0,
             health,
             estate,
-            pulse
+            pulse,
+            runway
         });
     } catch (err) {
         console.error('Summary error:', err);
