@@ -253,17 +253,44 @@ export class RetirementSimulator {
         const totalAtRetirement = futureSavings + futureContributions;
         const safeAnnualWithdrawal = totalAtRetirement * 0.04;
 
+        // Phase 11: Sequence of Returns Stress Test
+        const badLuckProjectedSavings = this.simulateSequenceRisk(totalAtRetirement, expectedReturn);
+
         return {
             yearsToRetirement,
             projectedSavings: Math.round(totalAtRetirement),
             safeAnnualIncome: Math.round(safeAnnualWithdrawal),
             safeMonthlyIncome: Math.round(safeAnnualWithdrawal / 12),
             ruleOf25: Math.round(totalAtRetirement / 25),
-            onTrack: totalAtRetirement > (desiredRetirementAge - 65) * 50000,
-            recommendation: totalAtRetirement < 1000000
-                ? 'Increase contributions or delay retirement. Target $1M+ for comfortable retirement at 65.'
-                : 'On track! Consider increasing TFSA proportion for tax flexibility in retirement.',
+            sequenceRiskImpact: Math.round(totalAtRetirement - badLuckProjectedSavings),
+            recommendation: (totalAtRetirement - badLuckProjectedSavings) > (totalAtRetirement * 0.15)
+                ? "⚠️ High Sequence Risk: A market crash early in retirement would significantly impact your longevity. Consider a 'Cash Wedge' (2 years of expenses in cash)."
+                : totalAtRetirement < 1000000
+                ? 'Increase contributions or delay retirement. Target $1M+ for comfortable retirement.'
+                : 'On track! Your portfolio shows good resilience against early market volatility.',
         };
+    }
+
+    /**
+     * Simulate a -15% return in the first 3 years of retirement vs standard returns.
+     */
+    private static simulateSequenceRisk(totalAtRetirement: number, expectedReturn: number): number {
+        let savings = totalAtRetirement;
+        const annualWithdrawal = totalAtRetirement * 0.04;
+        
+        for (let i = 0; i < 5; i++) {
+            const rate = i < 3 ? -15 : expectedReturn;
+            savings = (savings - annualWithdrawal) * (1 + rate / 100);
+        }
+        
+        // Compare with baseline
+        let baselineSavings = totalAtRetirement;
+        for (let i = 0; i < 5; i++) {
+            baselineSavings = (baselineSavings - annualWithdrawal) * (1 + expectedReturn / 100);
+        }
+
+        const driftFactor = savings / baselineSavings;
+        return totalAtRetirement * driftFactor;
     }
 }
 
