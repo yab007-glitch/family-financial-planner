@@ -406,11 +406,28 @@
                     </div>
                   </div>
 
+                  <!-- Estate Gap Card -->
+                  <div class="dash-card estate-gap" x-show="summary?.estate?.gap > 0">
+                    <div class="dash-card-header">
+                      <h4>🛡️ Insurance Check</h4>
+                    </div>
+                    <div class="estate-body">
+                        <div class="gap-warning">
+                            <span class="gap-label">Coverage Gap:</span>
+                            <span class="gap-value" x-text="formatCurrency(summary?.estate?.gap)"></span>
+                        </div>
+                        <p class="text-sm" x-text="summary?.estate?.recommendation"></p>
+                    </div>
+                  </div>
+
                   <!-- Accounts -->
                   <div class="dash-card">
                     <div class="dash-card-header">
                       <h4>📥 Accounts</h4>
-                      <button class="btn-small" @click="openAddAccount()">+ Add</button>
+                      <div class="flex-row" style="gap:8px">
+                        <button class="btn-small" @click="syncMarketData()" :disabled="isLoading">🔄 Sync</button>
+                        <button class="btn-small" @click="openAddAccount()">+ Add</button>
+                      </div>
                     </div>
                     <div class="table-responsive">
                       <table class="data-table">
@@ -555,6 +572,44 @@
 
     <!-- Tool Modal -->
     <div class="modal-overlay" x-show="showToolModal" x-transition.opacity>
+      <!-- ... -->
+    </div>
+
+    <!-- AI Coach Drawer -->
+    <div class="coach-drawer" :class="{ open: coachOpen }" x-show="isAuthenticated">
+        <div class="coach-header">
+            <h3>🤖 Financial Coach</h3>
+            <button class="btn-ghost" @click="coachOpen = false">&times;</button>
+        </div>
+        <div class="coach-messages" x-ref="coachMsgs">
+            <template x-for="msg in coachHistory">
+                <div class="msg" :class="msg.role">
+                    <p x-text="msg.text"></p>
+                </div>
+            </template>
+            <div x-show="coachLoading" class="msg assistant">
+                <p>Thinking... ⏳</p>
+            </div>
+        </div>
+        <div class="coach-input">
+            <input type="text" x-model="coachQuery" @keydown.enter="askCoach()" placeholder="Ask a question...">
+            <button class="btn-small" @click="askCoach()">Send</button>
+        </div>
+    </div>
+
+    <!-- Floating Bubble -->
+    <button class="coach-bubble no-print" @click="coachOpen = !coachOpen" x-show="isAuthenticated" aria-label="Ask AI Coach">
+        <span>🤖</span>
+    </button>
+  </div>
+
+  <div class="toast-container" id="toast-container" role="status" aria-live="polite"></div>
+
+  <script>
+    (function() {
+      var auth = document.getElementById('auth-screen');
+    <!-- Tool Modal -->
+    <div class="modal-overlay" x-show="showToolModal" x-transition.opacity>
       <div class="modal" @click.outside="closeToolModal()">
         <div class="modal-header">
           <h3 x-text="toolModalTitle"></h3>
@@ -591,10 +646,35 @@
         </div>
       </div>
     </div>
+
+    <!-- AI Coach Drawer -->
+    <div class="coach-drawer" :class="{ open: coachOpen }" x-show="isAuthenticated">
+        <div class="coach-header">
+            <h3>🤖 Financial Coach</h3>
+            <button class="btn-ghost" @click="coachOpen = false">&times;</button>
+        </div>
+        <div class="coach-messages" x-ref="coachMsgs">
+            <template x-for="msg in coachHistory">
+                <div class="msg" :class="msg.role">
+                    <p x-text="msg.text"></p>
+                </div>
+            </template>
+            <div x-show="coachLoading" class="msg assistant">
+                <p>Thinking... ⏳</p>
+            </div>
+        </div>
+        <div class="coach-input">
+            <input type="text" x-model="coachQuery" @keydown.enter="askCoach()" placeholder="Ask a question...">
+            <button class="btn-small" @click="askCoach()">Send</button>
+        </div>
+    </div>
+
+    <!-- Floating Bubble -->
+    <button class="coach-bubble no-print" @click="coachOpen = !coachOpen" x-show="isAuthenticated" aria-label="Ask AI Coach">
+        <span>🤖</span>
+    </button>
   </div>
-
   <div class="toast-container" id="toast-container" role="status" aria-live="polite"></div>
-
   <script>
     (function() {
       var auth = document.getElementById('auth-screen');

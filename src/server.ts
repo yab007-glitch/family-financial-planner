@@ -23,6 +23,8 @@ import scenariosRouter from './routes/scenarios';
 import mfaRouter from './routes/mfa';
 import importRouter from './routes/import';
 import reportsRouter from './routes/reports';
+import marketRouter from './routes/market';
+import coachRouter from './routes/coach';
 import { createCrudRouter } from './routes/crudRouter';
 
 import { healthCheck } from './db/database';
@@ -210,6 +212,8 @@ app.use('/api/families/:slug/tax', taxRouter);
 app.use('/api/families/:slug/tools', toolsRouter);
 app.use('/api/families/:slug/scenarios', scenariosRouter);
 app.use('/api/families/:slug/reports', reportsRouter);
+app.use('/api/families/:slug/market', marketRouter);
+app.use('/api/families/:slug/coach', coachRouter);
 
 app.get('/api/health', (_req: Request, res: Response) => {
     const dbHealthy = healthCheck();

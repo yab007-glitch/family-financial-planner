@@ -1,5 +1,5 @@
 -- ============================================================
--- Family Financial Planner v2.0 — Enhanced Schema
+-- Family Financial Planner v2.1 — Collaborative & Automated
 -- ============================================================
 
 -- Users (multi-tenant auth)
@@ -8,17 +8,17 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   name TEXT,
+  two_factor_secret TEXT, -- #MFA
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   last_login_at DATETIME,
-  -- #9: Brute force protection fields
   failed_login_attempts INTEGER DEFAULT 0,
   locked_until DATETIME
 );
 
--- Families (scoped to user)
+-- Families (scoped to owner initially, but multi-user via memberships)
 CREATE TABLE IF NOT EXISTS families (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- Original Creator
   name TEXT NOT NULL,
   slug TEXT NOT NULL,
   location TEXT,
@@ -27,7 +27,29 @@ CREATE TABLE IF NOT EXISTS families (
   UNIQUE(user_id, slug)
 );
 
--- Members
+-- Collaborative Partnerships
+CREATE TABLE IF NOT EXISTS family_memberships (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  family_id INTEGER NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT DEFAULT 'member', -- 'owner', 'member', 'viewer'
+  invited_by INTEGER REFERENCES users(id),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(family_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS family_invitations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  family_id INTEGER NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  token TEXT UNIQUE NOT NULL,
+  role TEXT DEFAULT 'member',
+  invited_by INTEGER NOT NULL REFERENCES users(id),
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Members (Household inhabitants)
 CREATE TABLE IF NOT EXISTS members (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   family_id INTEGER NOT NULL REFERENCES families(id) ON DELETE CASCADE,
@@ -44,6 +66,10 @@ CREATE TABLE IF NOT EXISTS accounts (
   type TEXT NOT NULL,
   institution TEXT,
   balance REAL DEFAULT 0,
+  symbol TEXT, -- #MarketData
+  units REAL DEFAULT 0, -- #MarketData
+  last_price REAL, -- #MarketData
+  last_price_at DATETIME, -- #MarketData
   contribution_room TEXT,
   target_allocation REAL,
   notes TEXT,
@@ -143,19 +169,6 @@ CREATE TABLE IF NOT EXISTS recurring_items (
   active INTEGER DEFAULT 1
 );
 
--- Insurance decisions log
-CREATE TABLE IF NOT EXISTS insurance_decisions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  family_id INTEGER NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  provider TEXT,
-  policy_type TEXT,
-  coverage TEXT,
-  premium TEXT,
-  decision TEXT,
-  rationale TEXT,
-  reviewed_at TEXT
-);
-
 -- Net worth snapshots (monthly auto-captured)
 CREATE TABLE IF NOT EXISTS net_worth_snapshots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -194,7 +207,7 @@ CREATE TABLE IF NOT EXISTS scenarios (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Migration tracking (#26)
+-- Migration tracking
 CREATE TABLE IF NOT EXISTS _migrations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT UNIQUE NOT NULL,
@@ -213,3 +226,5 @@ CREATE INDEX IF NOT EXISTS idx_audit_family ON audit_logs(family_id, created_at)
 CREATE INDEX IF NOT EXISTS idx_families_user_id ON families(user_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_logs(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_memberships_user ON family_memberships(user_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_token ON family_invitations(token);

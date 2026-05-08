@@ -42,7 +42,7 @@ export class PdfGenerator {
 
                 <div style="margin-top: 30px;">
                     <h3>Priority Recommendations</h3>
-                    ${health.recommendations.map(r => `<div class="recommendation">${r}</div>`).join('')}
+                    ${health.recommendations.map((r: string) => `<div class="recommendation">${r}</div>`).join('')}
                 </div>
             </body>
             </html>

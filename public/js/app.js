@@ -153,7 +153,7 @@ function appShell() {
                 const items = lines.slice(1).map(line => {
                     const values = line.split(',').map(v => v.trim());
                     const obj = {};
-                    headers.forEach((h, i) => obj[h] = values[i]);
+                    headers.forEach((h, j) => obj[h] = values[j]);
                     return obj;
                 });
 
@@ -170,6 +170,7 @@ function appShell() {
                 Toast.show(`Imported ${mapped.length} items!`, 'success');
                 this.loadDashboard();
             } catch (err) {
+                console.error(err);
                 Toast.show('Failed to parse CSV. Ensure comma-separated format.', 'error');
             } finally {
                 this.isLoading = false;
@@ -181,6 +182,41 @@ function appShell() {
 
     openImport(type) {
         Toast.show('API bank sync (Plaid/Flinks) requires a developer key.', 'info');
+    },
+
+    /* === Market Data === */
+    async syncMarketData() {
+        this.isLoading = true;
+        try {
+            const res = await API.post(`/api/families/${this.familySlug}/market/sync`);
+            Toast.show(`Synced ${res.data.updated} live account prices!`, 'success');
+            this.loadDashboard();
+        } catch (err) { Toast.show(parseApiError(err), 'error'); }
+        finally { this.isLoading = false; }
+    },
+
+    /* === AI Coach === */
+    coachOpen: false,
+    coachLoading: false,
+    coachQuery: '',
+    coachHistory: [{ role: 'assistant', text: "Hello! I'm your Financial Coach. Ask me anything about your net worth, taxes, or what-if scenarios." }],
+
+    async askCoach() {
+        if (!this.coachQuery.trim() || this.coachLoading) return;
+        const msg = this.coachQuery;
+        this.coachHistory.push({ role: 'user', text: msg });
+        this.coachQuery = '';
+        this.coachLoading = true;
+        
+        try {
+            const res = await API.post(`/api/families/${this.familySlug}/coach/ask`, { message: msg });
+            this.coachHistory.push({ role: 'assistant', text: res.data.reply });
+            setTimeout(() => {
+                const el = this.$refs.coachMsgs;
+                if (el) el.scrollTop = el.scrollHeight;
+            }, 50);
+        } catch (err) { Toast.show('Coach is unavailable', 'error'); }
+        finally { this.coachLoading = false; }
     },
 
     wizard: {

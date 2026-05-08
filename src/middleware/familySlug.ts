@@ -26,16 +26,19 @@ export async function validateFamilySlug(req: Request, res: Response, next: Next
     }
 
     try {
-        const family = await queries.get<{ id: number; user_id: number }>('SELECT id, user_id FROM families WHERE slug = ?', [slug]);
+        const family = await queries.get<{ id: number; role: string }>(
+            'SELECT f.id, m.role FROM families f JOIN family_memberships m ON f.id = m.family_id WHERE f.slug = ? AND m.user_id = ?',
+            [slug, req.userId]
+        );
 
         if (!family) {
-            res.status(404).json({ success: false, error: 'Family not found' });
-            return;
-        }
-
-        // Ownership check is now mandatory
-        if (family.user_id !== req.userId) {
-            res.status(403).json({ success: false, error: 'You do not have access to this family' });
+            // Check if family exists at all to return 403 vs 404
+            const exists = await queries.get('SELECT id FROM families WHERE slug = ?', [slug]);
+            if (exists) {
+                res.status(403).json({ success: false, error: 'You do not have access to this family' });
+            } else {
+                res.status(404).json({ success: false, error: 'Family not found' });
+            }
             return;
         }
 

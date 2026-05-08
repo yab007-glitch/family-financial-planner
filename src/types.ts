@@ -35,6 +35,10 @@ export interface Account {
     type: string;
     institution: string | null;
     balance: number;
+    symbol?: string | null;
+    units?: number | null;
+    last_price?: number | null;
+    last_price_at?: string | null;
     contribution_room: string | null;
     target_allocation: number | null;
     notes: string | null;
@@ -173,6 +177,19 @@ export interface FamilyDetail extends Family {
     milestones?: Milestone[];
     recurring?: RecurringItem[];
     snapshots?: NetWorthSnapshot[];
+}
+
+export interface HealthScoreResult {
+    score: number;
+    categories: {
+        liquidity: number;
+        debt: number;
+        savings: number;
+        tax: number;
+        estate: number;
+    };
+    recommendations: string[];
+    alerts: { text: string, severity: 'critical' | 'warning' | 'info' }[];
 }
 
 // Financial calculation types

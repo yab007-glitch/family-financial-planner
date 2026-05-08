@@ -3,6 +3,7 @@ import queries from '../db/queries';
 import { validateFamilySlug } from '../middleware/familySlug';
 import { sendSuccess, sendError } from '../utils/response';
 import { WealthOptimizer } from '../services/wealthOptimizer';
+import { EstateAnalyzer } from '../services/estateAnalyzer';
 
 const router = Router({ mergeParams: true });
 router.use(validateFamilySlug);
@@ -47,6 +48,14 @@ router.get('/', async (req: Request, res: Response) => {
         familyData.goals = await queries.all('SELECT * FROM goals WHERE family_id = ?', [f]);
 
         const health = new WealthOptimizer().calculateHealthScore(familyData);
+        
+        // Comprehensive Estate Check
+        const estate = EstateAnalyzer.analyzeInsuranceGap(familyData);
+        if (estate.gap > 0) {
+            health.categories.estate = Math.max(0, 100 - (estate.gap / 10000));
+            health.alerts.push({ text: `Life Insurance Gap: $${estate.gap.toLocaleString()} needed.`, severity: estate.gap > 500000 ? 'critical' : 'warning' });
+            health.recommendations.push(estate.recommendation);
+        }
 
         sendSuccess(res, {
             assets,
@@ -57,7 +66,8 @@ router.get('/', async (req: Request, res: Response) => {
             savingsRate,
             debtToAssetRatio: assets > 0 ? parseFloat((liabilities / assets * 100).toFixed(2)) : 0,
             liquidAssets: liquidAssetsRow?.total ?? 0,
-            health
+            health,
+            estate
         });
     } catch (err) {
         console.error('Summary error:', err);

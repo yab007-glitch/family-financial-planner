@@ -1,18 +1,5 @@
-import { FamilyDetail, Account, Debt, Goal, Member } from '../types';
+import { FamilyDetail, Account, Debt, Goal, Member, HealthScoreResult } from '../types';
 import { TaxEngine } from './taxEngine';
-
-export interface HealthScoreResult {
-    score: number;
-    categories: {
-        liquidity: number;
-        debt: number;
-        savings: number;
-        tax: number;
-        estate: number;
-    };
-    recommendations: string[];
-    alerts: { text: string, severity: 'critical' | 'warning' | 'info' }[];
-}
 
 export interface WealthRecommendation {
     priority: number;
