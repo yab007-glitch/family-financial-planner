@@ -192,6 +192,11 @@ export interface HealthScoreResult {
     };
     recommendations: string[];
     alerts: { text: string, severity: 'critical' | 'warning' | 'info' }[];
+    taxWindows?: {
+        marginalRate: number;
+        windowType: 'Standard' | 'Low Tax Window' | 'Peak Earning';
+        recommendation: string;
+    };
 }
 
 // Financial calculation types

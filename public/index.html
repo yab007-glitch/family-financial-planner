@@ -818,6 +818,22 @@
                       </div>
                     </div>
 
+                    <!-- Tax Efficiency & Meltdown (Phase 12) -->
+                    <div class="card">
+                      <h3>📈 Tax Efficiency Watch</h3>
+                      <div class="flex-column" style="gap:12px; margin-top:16px">
+                        <div class="flex-row" style="justify-content:space-between; align-items:center">
+                             <span>Current Window:</span>
+                             <span class="badge" :class="{ 'success': summary?.health?.taxWindows?.windowType === 'Low Tax Window', 'warning': summary?.health?.taxWindows?.windowType === 'Peak Earning', 'neutral': summary?.health?.taxWindows?.windowType === 'Standard' }" x-text="summary?.health?.taxWindows?.windowType"></span>
+                        </div>
+                        <div class="stat-row">
+                          <span>Marginal Rate:</span>
+                          <strong x-text="(summary?.health?.taxWindows?.marginalRate || 0) + '%'"></strong>
+                        </div>
+                        <p class="text-sm italic" x-text="summary?.health?.taxWindows?.recommendation"></p>
+                      </div>
+                    </div>
+
                     <!-- Withdrawal Strategies (Phase 9) -->
                     <div class="card">
                       <h3>🏦 Extraction Strategies</h3>

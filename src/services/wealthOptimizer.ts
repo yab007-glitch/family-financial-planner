@@ -76,7 +76,36 @@ export class WealthOptimizer {
                 estate: estateScore
             },
             recommendations,
-            alerts
+            alerts,
+            taxWindows: this.analyzeTaxWindows(family)
+        };
+    }
+
+    private analyzeTaxWindows(family: FamilyDetail) {
+        const engine = new TaxEngine(2025);
+        const members = family.members || [];
+        const incomes = members.map(m => (m as any).annual_income || 0);
+        const maxIncome = Math.max(...incomes, 0);
+        
+        const marginal = engine.getMarginalRate(maxIncome).combined;
+        
+        let windowType: 'Standard' | 'Low Tax Window' | 'Peak Earning' = 'Standard';
+        let recommendation = "";
+
+        if (maxIncome > 0 && maxIncome < 50000) {
+            windowType = 'Low Tax Window';
+            recommendation = "You are currently in a Low Tax Window! This is an ideal time for an 'RRSP Meltdown' or realizing capital gains at a lower tax rate.";
+        } else if (maxIncome > 150000) {
+            windowType = 'Peak Earning';
+            recommendation = "You are in a Peak Earning year. Maximizing RRSP contributions is highly efficient right now to defer tax from your top bracket.";
+        } else {
+            recommendation = "Your tax situation is stable. Continue balanced TFSA/RRSP contributions.";
+        }
+
+        return {
+            marginalRate: Math.round(marginal * 100),
+            windowType,
+            recommendation
         };
     }
 
