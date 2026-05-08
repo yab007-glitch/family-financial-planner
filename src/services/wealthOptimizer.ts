@@ -41,12 +41,23 @@ export class WealthOptimizer {
         // Savings Score: Accounts variation
         const hasTfsa = accounts.some((a: Account) => a.type === 'TFSA');
         const hasRrsp = accounts.some((a: Account) => a.type === 'RRSP');
+        const hasFhsa = accounts.some((a: Account) => a.type === 'FHSA');
         const hasResp = members.some((m: Member) => m.role === 'Child') && accounts.some((a: Account) => a.type === 'RESP');
-        const savingsScore = (hasTfsa ? 30 : 0) + (hasRrsp ? 30 : 0) + (hasResp || !members.some((m: Member) => m.role === 'Child') ? 40 : 0);
+        
+        let savingsScore = (hasTfsa ? 25 : 0) + (hasRrsp ? 25 : 0) + (hasFhsa ? 20 : 0);
+        if (members.some((m: Member) => m.role === 'Child')) {
+            savingsScore += (hasResp ? 30 : 0);
+        } else {
+            savingsScore += 30; // N/A bonus
+        }
+
+        // Tax Score: RRSP usage relative to income
+        const earners = members.filter(m => (m as any).annual_income > 60000);
+        const taxScore = earners.length === 0 ? 90 : (hasRrsp ? 95 : 45);
 
         const estateScore = 70; // Baseline
 
-        const overall = Math.round((liquidityScore + debtScore + savingsScore + estateScore) / 4);
+        const overall = Math.round((liquidityScore + debtScore + savingsScore + taxScore + estateScore) / 5);
 
         const recommendations: string[] = [];
         const alerts: HealthScoreResult['alerts'] = [];
@@ -66,13 +77,18 @@ export class WealthOptimizer {
             recommendations.push('Open an RESP to get 20% guaranteed match on your first $2,500/year.');
         }
 
+        if (earners.length > 0 && !hasRrsp) {
+            alerts.push({ text: 'High income with no RRSP shelter.', severity: 'warning' });
+            recommendations.push('Open an RRSP to reduce your taxable income and boost your tax refund.');
+        }
+
         return {
             score: overall,
             categories: {
                 liquidity: Math.round(liquidityScore),
                 debt: Math.round(debtScore),
                 savings: Math.round(savingsScore),
-                tax: 80,
+                tax: taxScore,
                 estate: estateScore
             },
             recommendations,
