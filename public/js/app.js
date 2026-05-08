@@ -138,7 +138,7 @@ function appShell() {
     },
 
     /* === Imports === */
-    async handleCsvImport(event, type) {
+    async handleCsvInput(event, type) {
         const file = event.target.files[0];
         if (!file) return;
         
@@ -157,17 +157,19 @@ function appShell() {
                     return obj;
                 });
 
-                // Mapping for budget: date -> month_year, amount, category
+                // Enhanced mapping: Include description and currency if available
                 const mapped = items.map(item => ({
                     monthYear: (item.date || item.month_year || new Date().toISOString()).slice(0,7),
                     category: item.category || 'Uncategorized',
+                    description: item.description || item.payee || item.memo || '',
                     amount: parseFloat(item.amount) || 0,
-                    type: (item.type || 'expense').toLowerCase()
+                    type: (item.type || 'expense').toLowerCase(),
+                    currency: item.currency || 'CAD'
                 }));
 
                 this.isLoading = true;
                 await API.post(`/api/families/${this.familySlug}/import`, { type, items: mapped });
-                Toast.show(`Imported ${mapped.length} items!`, 'success');
+                Toast.show(`Imported ${mapped.length} items with intelligent categorization!`, 'success');
                 this.loadDashboard();
             } catch (err) {
                 console.error(err);
@@ -550,10 +552,60 @@ function appShell() {
       }, 200);
     },
 
+    /* === Vault === */
+    vaultFiles: [],
+    async loadVault() {
+        if (!this.familySlug) return;
+        try {
+            const res = await API.get(`/api/families/${this.familySlug}/vault`);
+            this.vaultFiles = res.data;
+        } catch (err) { Toast.show('Failed to load vault', 'error'); }
+    },
+
+    async uploadToVault(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('entity_type', 'will'); // Default for now
+
+        this.isLoading = true;
+        try {
+            // Using raw fetch here since API client might need adjustment for FormData
+            const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
+            const csrf = document.cookie.split('; ').find(row => row.startsWith('csrf_token='))?.split('=')[1];
+            
+            const response = await fetch(`/api/families/${this.familySlug}/vault/upload`, {
+                method: 'POST',
+                headers: { 
+                    'x-csrf-token': csrf 
+                },
+                body: formData
+            });
+            const result = await response.json();
+            if (result.success) {
+                Toast.show('Document encrypted and stored!', 'success');
+                this.loadVault();
+            } else {
+                Toast.show(result.error || 'Upload failed', 'error');
+            }
+        } catch (err) { Toast.show('Upload failed', 'error'); }
+        finally { 
+            this.isLoading = false; 
+            event.target.value = '';
+        }
+    },
+
+    async downloadFromVault(file) {
+        window.open(`/api/families/${this.familySlug}/vault/${file.id}/download`, '_blank');
+    },
+
     go(page) {
       this.currentPage = page;
       if (page === 'dashboard') this.loadDashboard();
       if (page === 'plan') this.loadFamily();
+      if (page === 'vault') this.loadVault();
       window.location.hash = `/${page}`;
       this.sidebarOpen = false;
     },

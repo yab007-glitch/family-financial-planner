@@ -25,9 +25,15 @@ import importRouter from './routes/import';
 import reportsRouter from './routes/reports';
 import marketRouter from './routes/market';
 import coachRouter from './routes/coach';
+import vaultRouter from './routes/vault';
 import { createCrudRouter } from './routes/crudRouter';
 
 import { healthCheck } from './db/database';
+
+import { SchedulerService } from './services/schedulerService';
+
+// Initialize background jobs
+SchedulerService.init();
 
 const app = express();
 let server: ReturnType<typeof app.listen> | null = null;
@@ -214,6 +220,7 @@ app.use('/api/families/:slug/scenarios', scenariosRouter);
 app.use('/api/families/:slug/reports', reportsRouter);
 app.use('/api/families/:slug/market', marketRouter);
 app.use('/api/families/:slug/coach', coachRouter);
+app.use('/api/families/:slug/vault', vaultRouter);
 
 app.get('/api/health', (_req: Request, res: Response) => {
     const dbHealthy = healthCheck();

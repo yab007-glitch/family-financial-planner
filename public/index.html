@@ -98,6 +98,7 @@
             <li><a href="#/plan" :class="{ active: currentPage === 'plan' }" @click.prevent="go('plan')"><span class="nav-icon">🎯</span> My Plan</a></li>
             <li><a href="#/tools" :class="{ active: currentPage === 'tools' }" @click.prevent="go('tools')"><span class="nav-icon">🧮</span> Tools</a></li>
             <li><a href="#/settings" :class="{ active: currentPage === 'settings' }" @click.prevent="go('settings')"><span class="nav-icon">⚙️</span> Settings</a></li>
+            <li><a href="#/vault" :class="{ active: currentPage === 'vault' }" @click.prevent="go('vault')"><span class="nav-icon">📂</span> Vault</a></li>
           </ul>
 
           <div class="sidebar-footer no-print">
@@ -544,8 +545,52 @@
                     <h3>📥 Data Management</h3>
                     <div class="tool-grid">
                         <button class="tool-tile" @click="$refs.csvInput.click()">📄 Import Budget CSV</button>
-                        <input type="file" x-ref="csvInput" style="display:none" accept=".csv" @change="handleCsvImport($event, 'budget')">
+                        <input type="file" x-ref="csvInput" style="display:none" accept=".csv" @change="handleCsvInput($event, 'budget')">
                         <button class="tool-tile" @click="openImport('accounts')">🏦 Import Accounts (API)</button>
+                    </div>
+                </div>
+              </div>
+
+              <!-- VAULT PAGE -->
+              <div x-show="currentPage === 'vault'" style="max-width:800px">
+                <h2>📂 Secure Vault</h2>
+                <p class="lead">Encrypted storage for your important family documents (Wills, Insurance Policies, etc.)</p>
+                
+                <div class="card" style="margin-top:24px">
+                    <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:16px">
+                        <h3>Documents</h3>
+                        <button class="btn btn-primary" @click="$refs.vaultInput.click()">+ Upload Document</button>
+                        <input type="file" x-ref="vaultInput" style="display:none" @change="uploadToVault($event)">
+                    </div>
+
+                    <div class="vault-list">
+                        <template x-if="vaultFiles.length === 0">
+                            <p class="text-center text-muted" style="padding:40px">Zero documents in your vault. Secure your legacy today.</p>
+                        </template>
+                        <table class="data-table" x-show="vaultFiles.length > 0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Date</th>
+                                    <th>Size</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="file in vaultFiles" :key="file.id">
+                                    <tr>
+                                        <td x-text="file.name" style="font-weight:600"></td>
+                                        <td x-text="file.entity_type"></td>
+                                        <td x-text="new Date(file.created_at).toLocaleDateString()"></td>
+                                        <td x-text="(file.file_size / 1024).toFixed(1) + ' KB'"></td>
+                                        <td>
+                                            <button class="btn-small" @click="downloadFromVault(file)">💾 Download</button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
               </div>

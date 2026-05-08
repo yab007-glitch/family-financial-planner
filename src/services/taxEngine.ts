@@ -52,16 +52,16 @@ const TAX_DATA: Record<number, {
     },
     2025: {
         federalBrackets: [
-            { limit: 55867, rate: 0.15 },
-            { limit: 111733, rate: 0.205 },
-            { limit: 173205, rate: 0.26 },
-            { limit: 246752, rate: 0.29 },
+            { limit: 57375, rate: 0.15 },
+            { limit: 114750, rate: 0.205 },
+            { limit: 177882, rate: 0.26 },
+            { limit: 253414, rate: 0.29 },
             { limit: Infinity, rate: 0.33 },
         ],
         quebecBrackets: [
-            { limit: 51780, rate: 0.14 },
-            { limit: 103545, rate: 0.19 },
-            { limit: 126000, rate: 0.24 },
+            { limit: 53895, rate: 0.14 },
+            { limit: 107775, rate: 0.19 },
+            { limit: 131145, rate: 0.24 },
             { limit: Infinity, rate: 0.2575 },
         ],
         federalBPA: 16129,
