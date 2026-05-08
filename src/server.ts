@@ -126,16 +126,29 @@ app.use(cookieParser());
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// Path resolution for static files
-const publicPath = path.join(__dirname, '../public');
-app.use(express.static(publicPath, { index: false }));
-
 // #5: Stricter rate limit for auth endpoints
 const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: CONFIG.AUTH_RATE_LIMIT_MAX, // 10 attempts per window per IP
-    message: { success: false, error: 'Too many authentication attempts. Please try again later.' },
+    windowMs: 15 * 60 * 1000, 
+    max: CONFIG.AUTH_RATE_LIMIT_MAX,
+    message: { success: false, error: 'Too many authentication attempts.' },
     standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const apiLimiter = rateLimit({
+    windowMs: CONFIG.RATE_LIMIT_WINDOW_MS,
+    max: CONFIG.RATE_LIMIT_MAX,
+    message: { success: false, error: 'Too many requests.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => req.path === '/api/health',
+});
+
+app.use('/api/auth', authLimiter);
+app.use('/api/', apiLimiter);
+
+// Auth routes
+app.use('/api/auth', authRouter);
     legacyHeaders: false,
 });
 
@@ -226,6 +239,10 @@ app.use('/api/families/:slug/coach', coachRouter);
 app.use('/api/families/:slug/vault', vaultRouter);
 app.use('/api/families/:slug/insights', insightsRouter);
 app.use('/api/families/:slug/portfolio', portfolioRouter);
+
+// Set up static files AFTER all API routes but BEFORE the catch-all
+const publicPath = path.join(__dirname, '../public');
+app.use(express.static(publicPath, { index: false }));
 
 app.get('/api/health', (_req: Request, res: Response) => {
     const dbHealthy = healthCheck();
