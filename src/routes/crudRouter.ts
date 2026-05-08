@@ -11,8 +11,8 @@ const ALLOWED_TABLES = new Set([
 ]);
 
 const ALLOWED_COLUMNS: Record<string, ReadonlySet<string>> = {
-    members: new Set(['name', 'role', 'age', 'notes']),
-    accounts: new Set(['type', 'institution', 'balance', 'contribution_room', 'target_allocation', 'notes']),
+    members: new Set(['name', 'role', 'age', 'annual_income', 'notes']),
+    accounts: new Set(['type', 'institution', 'balance', 'symbol', 'units', 'last_price', 'last_price_at', 'asset_class', 'target_percent', 'contribution_room', 'target_allocation', 'notes']),
     debts: new Set(['type', 'balance', 'interest_rate', 'monthly_payment', 'original_amount', 'start_date', 'notes']),
     insurance: new Set(['type', 'provider', 'coverage', 'premium', 'status', 'renewal_date', 'notes']),
     goals: new Set(['timeframe', 'priority', 'description', 'target_amount', 'current_amount', 'monthly_contribution', 'deadline', 'status', 'project_return', 'notes']),
