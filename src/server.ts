@@ -26,6 +26,7 @@ import reportsRouter from './routes/reports';
 import marketRouter from './routes/market';
 import coachRouter from './routes/coach';
 import vaultRouter from './routes/vault';
+import insightsRouter from './routes/insights';
 import { createCrudRouter } from './routes/crudRouter';
 
 import { healthCheck } from './db/database';
@@ -221,6 +222,7 @@ app.use('/api/families/:slug/reports', reportsRouter);
 app.use('/api/families/:slug/market', marketRouter);
 app.use('/api/families/:slug/coach', coachRouter);
 app.use('/api/families/:slug/vault', vaultRouter);
+app.use('/api/families/:slug/insights', insightsRouter);
 
 app.get('/api/health', (_req: Request, res: Response) => {
     const dbHealthy = healthCheck();

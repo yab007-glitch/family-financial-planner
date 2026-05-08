@@ -80,6 +80,27 @@ const Charts = {
         plugins: { legend: { labels: { color: textColor, font: { size: 12 } } } }
       }
     });
+  },
+  line(id, labels, datasets) {
+    this.destroy(id);
+    const ctx = document.getElementById(id);
+    if (!ctx) return;
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+    this.instances[id] = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { grid: { display: false }, ticks: { color: textColor, font: { size: 10 } } },
+          y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
   }
 };
 
@@ -601,11 +622,44 @@ function appShell() {
         window.open(`/api/families/${this.familySlug}/vault/${file.id}/download`, '_blank');
     },
 
+    /* === Advisor Insights === */
+    insights: null,
+    async loadInsights() {
+        if (!this.familySlug) return;
+        this.isLoading = true;
+        try {
+            const res = await API.get(`/api/families/${this.familySlug}/insights/insights`);
+            this.insights = res.data;
+            this.renderHistoryChart();
+        } catch (err) { Toast.show('Failed to load insights', 'error'); }
+        finally { this.isLoading = false; }
+    },
+
+    renderHistoryChart() {
+        setTimeout(() => {
+            if (!this.insights?.history?.length) return;
+            const labels = this.insights.history.map(h => h.date);
+            const data = this.insights.history.map(h => h.value);
+            
+            Charts.line('historyChart', labels, [
+                {
+                    label: 'Net Worth',
+                    data: data,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }
+            ]);
+        }, 100);
+    },
+
     go(page) {
       this.currentPage = page;
       if (page === 'dashboard') this.loadDashboard();
       if (page === 'plan') this.loadFamily();
       if (page === 'vault') this.loadVault();
+      if (page === 'insights') this.loadInsights();
       window.location.hash = `/${page}`;
       this.sidebarOpen = false;
     },

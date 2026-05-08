@@ -99,6 +99,7 @@
             <li><a href="#/tools" :class="{ active: currentPage === 'tools' }" @click.prevent="go('tools')"><span class="nav-icon">🧮</span> Tools</a></li>
             <li><a href="#/settings" :class="{ active: currentPage === 'settings' }" @click.prevent="go('settings')"><span class="nav-icon">⚙️</span> Settings</a></li>
             <li><a href="#/vault" :class="{ active: currentPage === 'vault' }" @click.prevent="go('vault')"><span class="nav-icon">📂</span> Vault</a></li>
+            <li><a href="#/insights" :class="{ active: currentPage === 'insights' }" @click.prevent="go('insights')"><span class="nav-icon">💡</span> Advisor</a></li>
           </ul>
 
           <div class="sidebar-footer no-print">
@@ -592,6 +593,80 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+              </div>
+
+                </div>
+              </div>
+
+              <!-- WEALTH ADVISOR PAGE -->
+              <div x-show="currentPage === 'insights'" style="max-width:900px">
+                <h2>💡 Private Wealth Advisor</h2>
+                <p class="lead">Advanced optimization strategies for spousal tax splitting, real estate equity, and historical trends.</p>
+
+                <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 24px; margin-top: 24px;">
+                  <!-- Left Column -->
+                  <div class="flex-column" style="gap:24px">
+                    <!-- Historical Trend -->
+                    <div class="card">
+                      <h3>📈 Net Worth Journey</h3>
+                      <div style="height:300px; margin-top:16px">
+                        <canvas id="historyChart"></canvas>
+                      </div>
+                    </div>
+
+                    <!-- Spousal Tax Optimization -->
+                    <div class="card">
+                      <div class="flex-row" style="justify-content:space-between">
+                        <h3>👫 Spousal Tax Optimization</h3>
+                        <span class="badge success" x-text="'Est. Savings: ' + formatCurrency(insights?.spousalTax?.savings || 0)"></span>
+                      </div>
+                      <div x-show="insights?.spousalTax?.recommendations?.length > 0" style="margin-top:16px">
+                        <template x-for="rec in insights?.spousalTax?.recommendations">
+                          <div class="recommendation-item" style="padding:12px; border-left:4px solid var(--primary); background:var(--bg); margin-bottom:12px; border-radius:4px">
+                            <div class="flex-row" style="justify-content:space-between">
+                                <strong x-text="rec.member + ': ' + rec.action"></strong>
+                                <span class="text-muted" x-text="rec.amount > 0 ? formatCurrency(rec.amount) : ''"></span>
+                            </div>
+                            <p class="text-sm" x-text="rec.reason" style="margin-top:4px"></p>
+                          </div>
+                        </template>
+                      </div>
+                      <p x-show="!insights?.spousalTax?.recommendations?.length" class="text-muted">Add a partner with income to see spousal optimization.</p>
+                    </div>
+                  </div>
+
+                  <!-- Right Column -->
+                  <div class="flex-column" style="gap:24px">
+                    <!-- Real Estate Refi -->
+                    <div class="card">
+                      <h3>🏠 Real Estate Equity</h3>
+                      <div style="margin-top:16px">
+                        <div class="stat-row">
+                          <span>Current LTV:</span>
+                          <strong x-text="(insights?.realEstate?.currentLTV || 0) + '%'"></strong>
+                        </div>
+                        <div class="meter-track">
+                          <div class="meter-fill" :class="insights?.realEstate?.currentLTV < 80 ? 'good' : 'poor'" :style="'width: ' + Math.min(100, insights?.realEstate?.currentLTV || 0) + '%'"></div>
+                        </div>
+                        <div class="stat-row" style="margin-top:12px">
+                          <span>Unlockable Equity:</span>
+                          <strong class="text-success" x-text="formatCurrency(insights?.realEstate?.unlockableEquity || 0)"></strong>
+                        </div>
+                        <p class="text-sm" style="margin-top:12px" x-text="insights?.realEstate?.recommendation"></p>
+                      </div>
+                    </div>
+
+                    <!-- Strategic Rules -->
+                    <div class="card">
+                      <h3>🎓 Advanced Manual</h3>
+                      <div class="text-sm" style="margin-top:8px">
+                        <div style="margin-bottom:8px"><strong>Smith Maneuver:</strong> Convert mortgage into tax-deductible debt.</div>
+                        <div style="margin-bottom:8px"><strong>Donation Pooling:</strong> Claim on highest earner (33% credit).</div>
+                        <div><strong>Medical Pooling:</strong> Claim on lowest earner (3% floor).</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
