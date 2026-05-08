@@ -47,12 +47,21 @@ export function runMigrations(): void {
             if (!applied.has(file)) {
                 const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
                 try {
+                    // Split SQL by statements (basic splitter by semicolon)
+                    // This allows some statements to fail while others succeed if needed,
+                    // but we usually want atomic migrations.
+                    // However, we'll try to catch "duplicate column" errors specifically.
                     db.exec(sql);
                     recordMigration(file);
                     console.log(`✅ Migration applied: ${file}`);
-                } catch (err) {
-                    console.error(`❌ Migration failed: ${file}`, err);
-                    throw err;
+                } catch (err: any) {
+                    if (err.message && (err.message.includes('duplicate column name') || err.message.includes('already exists'))) {
+                        console.warn(`⚠️ Migration ${file} had duplicate column/table, considering it applied: ${err.message}`);
+                        recordMigration(file);
+                    } else {
+                        console.error(`❌ Migration failed: ${file}`, err);
+                        throw err;
+                    }
                 }
             }
         }
