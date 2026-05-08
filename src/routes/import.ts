@@ -21,7 +21,7 @@ router.post('/', validateBody(importSchema), async (req: Request, res: Response)
     const f = req.familyId!;
 
     try {
-        const processedItems = [];
+        const processedItems: any[] = [];
         
         // Enhance items before insertion
         for (const item of items) {

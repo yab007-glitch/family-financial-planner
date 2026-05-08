@@ -39,6 +39,8 @@ export interface Account {
     units?: number | null;
     last_price?: number | null;
     last_price_at?: string | null;
+    asset_class?: string | null; // #PortfolioGovernance
+    target_percent?: number | null; // #PortfolioGovernance
     contribution_room: string | null;
     target_allocation: number | null;
     notes: string | null;

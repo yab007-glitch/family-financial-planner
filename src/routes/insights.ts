@@ -4,6 +4,8 @@ import { sendSuccess, sendError } from '../utils/response';
 import queries from '../db/queries';
 import { TaxOptimizer } from '../services/taxOptimizer';
 import { RealEstateStrategist } from '../services/realEstateStrategist';
+import { EstateAnalyzer } from '../services/estateAnalyzer';
+import { TaxPrepService } from '../services/taxPrepService';
 
 const router = Router({ mergeParams: true });
 router.use(validateFamilySlug);
@@ -21,6 +23,10 @@ router.get('/insights', async (req: Request, res: Response) => {
         const spousal = taxOpt.optimizeSpousalSplitting(members);
         
         const realEstate = await RealEstateStrategist.analyzeRefinance(familyData);
+        
+        const estateTransfer = EstateAnalyzer.simulateProbate(familyData);
+        
+        const taxChecklist = TaxPrepService.generateChecklist(familyData);
 
         const history = await queries.all(
             'SELECT snapshot_date as date, net_worth as value FROM net_worth_snapshots WHERE family_id = ? ORDER BY snapshot_date ASC LIMIT 24',
@@ -30,6 +36,8 @@ router.get('/insights', async (req: Request, res: Response) => {
         sendSuccess(res, {
             spousalTax: spousal,
             realEstate,
+            estateTransfer,
+            taxChecklist,
             history
         });
     } catch (err) {

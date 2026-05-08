@@ -4,6 +4,7 @@ import { validateFamilySlug } from '../middleware/familySlug';
 import { sendSuccess, sendError } from '../utils/response';
 import { WealthOptimizer } from '../services/wealthOptimizer';
 import { EstateAnalyzer } from '../services/estateAnalyzer';
+import { PulseService } from '../services/pulseService';
 
 const router = Router({ mergeParams: true });
 router.use(validateFamilySlug);
@@ -49,6 +50,9 @@ router.get('/', async (req: Request, res: Response) => {
 
         const health = new WealthOptimizer().calculateHealthScore(familyData);
         
+        // Family Pulse (Phase 6)
+        const pulse = await PulseService.generateWeeklyPulse(f);
+
         // Comprehensive Estate Check
         const estate = EstateAnalyzer.analyzeInsuranceGap(familyData);
         if (estate.gap > 0) {
@@ -67,7 +71,8 @@ router.get('/', async (req: Request, res: Response) => {
             debtToAssetRatio: assets > 0 ? parseFloat((liabilities / assets * 100).toFixed(2)) : 0,
             liquidAssets: liquidAssetsRow?.total ?? 0,
             health,
-            estate
+            estate,
+            pulse
         });
     } catch (err) {
         console.error('Summary error:', err);

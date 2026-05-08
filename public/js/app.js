@@ -654,11 +654,56 @@ function appShell() {
         }, 100);
     },
 
+    /* === Portfolio Governance === */
+    portfolio: null,
+    async loadPortfolio() {
+        if (!this.familySlug) return;
+        this.isLoading = true;
+        try {
+            const res = await API.get(`/api/families/${this.familySlug}/portfolio/analysis`);
+            this.portfolio = res.data;
+            this.renderAllocationChart();
+        } catch (err) { Toast.show('Failed to load portfolio', 'error'); }
+        finally { this.isLoading = false; }
+    },
+
+    async savePortfolioTargets() {
+        if (!this.familySlug) return;
+        const total = this.familyData.accounts.reduce((s, a) => s + (Number(a.target_percent) || 0), 0);
+        if (total !== 100 && total !== 0) {
+            if (!confirm(`Warning: Your total target allocation is ${total}%. It should ideally sum to 100%. Continue?`)) return;
+        }
+
+        this.isLoading = true;
+        try {
+            const targets = this.familyData.accounts.map(a => ({
+                id: a.id,
+                asset_class: a.asset_class,
+                target_percent: Number(a.target_percent) || 0
+            }));
+            await API.post(`/api/families/${this.familySlug}/portfolio/targets`, { targets });
+            Toast.show('Targets saved successfully', 'success');
+            this.loadPortfolio();
+        } catch (err) { Toast.show('Failed to save targets', 'error'); }
+        finally { this.isLoading = false; }
+    },
+
+    renderAllocationChart() {
+        setTimeout(() => {
+            if (!this.portfolio?.instructions?.length) return;
+            const labels = this.portfolio.instructions.map(i => i.assetClass);
+            const data = this.portfolio.instructions.map(i => i.currentValue);
+            
+            Charts.doughnut('allocationChart', labels, data, ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b']);
+        }, 100);
+    },
+
     go(page) {
       this.currentPage = page;
       if (page === 'dashboard') this.loadDashboard();
       if (page === 'plan') this.loadFamily();
       if (page === 'vault') this.loadVault();
+      if (page === 'portfolio') { this.loadFamily(); this.loadPortfolio(); }
       if (page === 'insights') this.loadInsights();
       window.location.hash = `/${page}`;
       this.sidebarOpen = false;

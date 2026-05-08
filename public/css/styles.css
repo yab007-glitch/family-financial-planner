@@ -822,4 +822,26 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .gap-value { font-size: 1.25rem; font-weight: bold; color: var(--warning); }
 .gap-label { color: var(--text-light); font-size: 0.85rem; }
 
-.badge.success { background: var(--success-light); color: var(--success); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; }
+.badge.neutral { background: var(--border); color: var(--text-light); }
+.highlight-row { background: rgba(59, 130, 246, 0.05); }
+
+.alert-box { padding: 12px 16px; border-radius: 8px; border-left: 4px solid var(--primary); margin-bottom: 8px; background: var(--bg); }
+.alert-box.warning { border-color: var(--warning); background: rgba(245, 158, 11, 0.05); }
+.alert-box.info { border-color: var(--primary); background: rgba(59, 130, 246, 0.05); }
+
+.meter-track { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+.meter-fill { height: 100%; transition: width 0.3s; }
+.meter-fill.good { background: var(--success); }
+.meter-fill.fair { background: var(--warning); }
+.meter-fill.poor { background: var(--danger); }
+
+.pulse-card { border-top: 4px solid var(--primary); }
+.pulse-card.positive { border-top-color: var(--success); background: rgba(16, 185, 129, 0.05); }
+.pulse-card.warning { border-top-color: var(--warning); background: rgba(245, 158, 11, 0.05); }
+.pulse-icon { font-size: 1.2rem; }
+
+.text-danger { color: var(--danger); }
+.total-row { border-top: 2px solid var(--border); padding-top: 12px; margin-top: 4px; font-size: 1.1rem; }
+.weight-600 { font-weight: 600; }
+.d-block { display: block; }
+.text-xs { font-size: 0.75rem; }

@@ -73,4 +73,37 @@ export class EstateAnalyzer {
       recommendation
     };
   }
+
+  public static simulateProbate(familyData: FamilyDetail): any {
+    const province = familyData.location || 'QC';
+    const accounts = familyData.accounts || [];
+    
+    // In many provinces, accounts with named beneficiaries bypass probate
+    // For this simulation, we consider RRSPs and TFSAs without explicit 'Joint' or 'Beneficiary' note as probatable
+    const subjectToProbate = accounts.filter(a => 
+        !['TFSA', 'RRSP'].includes(a.type) || 
+        (a.notes && a.notes.toLowerCase().includes('no beneficiary'))
+    ).reduce((sum, a) => sum + (a.balance || 0), 0);
+
+    let rate = 0.015; // Ontario/BC average ~1.5%
+    if (province === 'QC') rate = 0.001; // Quebec is very low flat fee for notarial wills (~$500 total)
+    else if (province === 'ON' && subjectToProbate < 50000) rate = 0;
+
+    const probateFees = province === 'QC' ? 500 : subjectToProbate * rate;
+    
+    // 2. Terminal Tax (RRSP deemed inclusion)
+    const rrspAssets = accounts.filter(a => a.type === 'RRSP').reduce((sum, a) => sum + (a.balance || 0), 0);
+    const terminalTax = rrspAssets * 0.45; // Deemed sold at highest bracket usually
+
+    return {
+        province,
+        probateFees: Math.round(probateFees),
+        terminalTax: Math.round(terminalTax),
+        totalEstateCost: Math.round(probateFees + terminalTax),
+        probatableAmount: Math.round(subjectToProbate),
+        recommendation: terminalTax > 50000 
+            ? "Your terminal tax on RRSPs is significant. Consider a naming a 'Successor Holder' for TFSAs and ensure RRSPs have named beneficiaries to bypass probate."
+            : "Your estate transfer costs are manageable. Ensure your Will is up to date."
+    };
+  }
 }

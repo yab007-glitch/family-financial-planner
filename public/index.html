@@ -99,6 +99,7 @@
             <li><a href="#/tools" :class="{ active: currentPage === 'tools' }" @click.prevent="go('tools')"><span class="nav-icon">🧮</span> Tools</a></li>
             <li><a href="#/settings" :class="{ active: currentPage === 'settings' }" @click.prevent="go('settings')"><span class="nav-icon">⚙️</span> Settings</a></li>
             <li><a href="#/vault" :class="{ active: currentPage === 'vault' }" @click.prevent="go('vault')"><span class="nav-icon">📂</span> Vault</a></li>
+            <li><a href="#/portfolio" :class="{ active: currentPage === 'portfolio' }" @click.prevent="go('portfolio')"><span class="nav-icon">📊</span> Portfolio</a></li>
             <li><a href="#/insights" :class="{ active: currentPage === 'insights' }" @click.prevent="go('insights')"><span class="nav-icon">💡</span> Advisor</a></li>
           </ul>
 
@@ -325,6 +326,18 @@
                 </div>
 
                 <div class="dashboard-grid">
+                  <!-- Family Pulse (Phase 6) -->
+                  <div class="dash-card pulse-card" :class="summary?.pulse?.sentiment" x-show="summary?.pulse">
+                    <div class="dash-card-header">
+                      <h4 x-text="summary?.pulse?.title"></h4>
+                      <span class="pulse-icon" x-show="summary?.pulse?.sentiment === 'positive'">✨</span>
+                      <span class="pulse-icon" x-show="summary?.pulse?.sentiment === 'warning'">⚠️</span>
+                    </div>
+                    <div class="pulse-body" style="margin-top:8px">
+                      <p class="text-sm" x-text="summary?.pulse?.body"></p>
+                    </div>
+                  </div>
+
                   <!-- Health Score Card -->
                   <div class="dash-card health-score">
                     <div class="dash-card-header">
@@ -599,6 +612,120 @@
                 </div>
               </div>
 
+                </div>
+              </div>
+
+              <!-- PORTFOLIO GOVERNANCE PAGE -->
+              <div x-show="currentPage === 'portfolio'" style="max-width:900px">
+                <h2>📊 Portfolio Governance</h2>
+                <p class="lead">Monitor asset allocation drift, detect cash drag, and get rebalancing instructions.</p>
+
+                <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
+                    <!-- Left: Allocation & Drift -->
+                    <div class="card">
+                        <div class="flex-row" style="justify-content:space-between">
+                            <h3>Current Allocation</h3>
+                            <span class="badge" :class="portfolio?.drift < 5 ? 'success' : 'warning'" x-text="'Drift: ' + (portfolio?.drift || 0) + '%'"></span>
+                        </div>
+                        <div style="height:250px; margin-top:16px">
+                            <canvas id="allocationChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Right: Cash Drag & Alerts -->
+                    <div class="card flex-column" style="gap:16px">
+                        <h3>Portfolio Alerts</h3>
+                        <div x-show="portfolio?.cashDrag?.excessCash > 0" class="alert-box warning">
+                            <strong>💸 Cash Drag Detected</strong>
+                            <p class="text-sm" x-text="portfolio.cashDrag.recommendation"></p>
+                        </div>
+                        <template x-if="portfolio?.drift >= 5">
+                            <div class="alert-box info">
+                                <strong>⚖️ Rebalancing Recommended</strong>
+                                <p class="text-sm">Your portfolio has drifted more than 5% from its target. Review the instructions below.</p>
+                            </div>
+                        </template>
+                        <template x-if="!portfolio?.cashDrag?.excessCash && portfolio?.drift < 5">
+                            <p class="text-center text-muted" style="padding:40px">Your portfolio is perfectly balanced and efficient. No action required.</p>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Rebalancing Instructions -->
+                <div class="card" style="margin-top:24px">
+                    <h3>Rebalancing Instructions</h3>
+                    <div class="table-responsive" style="margin-top:16px">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Asset Class</th>
+                                    <th>Current</th>
+                                    <th>Target</th>
+                                    <th>Difference</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="ins in portfolio?.instructions" :key="ins.assetClass">
+                                    <tr :class="{ 'highlight-row': ins.action !== 'Hold' }">
+                                        <td x-text="ins.assetClass"></td>
+                                        <td x-text="formatCurrency(ins.currentValue)"></td>
+                                        <td x-text="formatCurrency(ins.targetValue)"></td>
+                                        <td :class="ins.difference > 0 ? 'text-success' : 'text-danger'" x-text="(ins.difference > 0 ? '+' : '') + formatCurrency(ins.difference)"></td>
+                                        <td>
+                                            <span class="badge" :class="{ 'success': ins.action === 'Buy', 'danger': ins.action === 'Sell', 'neutral': ins.action === 'Hold' }" x-text="ins.action"></span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Manage Targets Section -->
+                <div class="card" style="margin-top:24px">
+                    <h3>Set Targets per Account</h3>
+                    <p class="text-sm text-muted">Assign asset classes and target percentages to your accounts to enable governance.</p>
+                    <div class="table-responsive" style="margin-top:16px">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Account</th>
+                                    <th>Asset Class</th>
+                                    <th>Target %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="acc in (familyData?.accounts || [])" :key="acc.id">
+                                    <tr>
+                                        <td x-text="acc.institution + ' ' + acc.type"></td>
+                                        <td>
+                                            <select class="form-control-small" x-model="acc.asset_class">
+                                                <option value="Equities">Equities</option>
+                                                <option value="Fixed Income">Fixed Income</option>
+                                                <option value="Cash">Cash</option>
+                                                <option value="Real Estate">Real Estate</option>
+                                                <option value="Crypto">Crypto</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <div class="flex-row" style="align-items:center; gap:8px">
+                                                <input type="number" class="form-control-small" style="width:70px" x-model.number="acc.target_percent" min="0" max="100">
+                                                <span>%</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex-row" style="justify-content:flex-end; margin-top:16px">
+                        <button class="btn btn-primary" @click="savePortfolioTargets()">Save Targets</button>
+                    </div>
+                </div>
+              </div>
+
               <!-- WEALTH ADVISOR PAGE -->
               <div x-show="currentPage === 'insights'" style="max-width:900px">
                 <h2>💡 Private Wealth Advisor</h2>
@@ -634,6 +761,27 @@
                       </div>
                       <p x-show="!insights?.spousalTax?.recommendations?.length" class="text-muted">Add a partner with income to see spousal optimization.</p>
                     </div>
+                    </div>
+
+                    <!-- Estate Transfer Simulator (Phase 7) -->
+                    <div class="card">
+                      <h3>🏛️ Estate Transfer Simulator</h3>
+                      <div class="flex-column" style="gap:12px; margin-top:16px">
+                        <div class="stat-row">
+                          <span>Est. Probate Fees:</span>
+                          <strong x-text="formatCurrency(insights?.estateTransfer?.probateFees)"></strong>
+                        </div>
+                        <div class="stat-row">
+                          <span>RRSP Terminal Tax:</span>
+                          <strong class="text-danger" x-text="formatCurrency(insights?.estateTransfer?.terminalTax)"></strong>
+                        </div>
+                        <div class="stat-row total-row">
+                          <span>Total Transfer Cost:</span>
+                          <strong x-text="formatCurrency(insights?.estateTransfer?.totalEstateCost)"></strong>
+                        </div>
+                        <p class="text-sm italic" x-text="insights?.estateTransfer?.recommendation"></p>
+                      </div>
+                    </div>
                   </div>
 
                   <!-- Right Column -->
@@ -664,6 +812,23 @@
                         <div style="margin-bottom:8px"><strong>Smith Maneuver:</strong> Convert mortgage into tax-deductible debt.</div>
                         <div style="margin-bottom:8px"><strong>Donation Pooling:</strong> Claim on highest earner (33% credit).</div>
                         <div><strong>Medical Pooling:</strong> Claim on lowest earner (3% floor).</div>
+                      </div>
+                    </div>
+
+                    <!-- Tax Prep Automation (Phase 8) -->
+                    <div class="card">
+                      <h3>📅 Smart Tax Checklist</h3>
+                      <p class="text-xs text-muted">Personalized based on your accounts.</p>
+                      <div class="flex-column" style="gap:8px; margin-top:12px">
+                        <template x-for="doc in insights?.taxChecklist">
+                          <div class="flex-row" style="gap:10px; align-items:flex-start">
+                             <input type="checkbox" style="margin-top:4px">
+                             <div>
+                                <span class="text-sm weight-600 d-block" x-text="doc.name"></span>
+                                <p class="text-xs text-muted" x-text="doc.description"></p>
+                             </div>
+                          </div>
+                        </template>
                       </div>
                     </div>
                   </div>
