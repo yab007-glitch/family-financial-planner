@@ -135,6 +135,7 @@ const authLimiter = rateLimit({
     legacyHeaders: false,
 });
 
+// General API rate limit
 const apiLimiter = rateLimit({
     windowMs: CONFIG.RATE_LIMIT_WINDOW_MS,
     max: CONFIG.RATE_LIMIT_MAX,
@@ -144,24 +145,7 @@ const apiLimiter = rateLimit({
     skip: (req) => req.path === '/api/health',
 });
 
-app.use('/api/auth', authLimiter);
-app.use('/api/', apiLimiter);
-
-// Auth routes
-app.use('/api/auth', authRouter);
-    legacyHeaders: false,
-});
-
-// General API rate limit
-const apiLimiter = rateLimit({
-    windowMs: CONFIG.RATE_LIMIT_WINDOW_MS,
-    max: CONFIG.RATE_LIMIT_MAX,
-    message: { success: false, error: 'Too many requests. Please try again later.' },
-    standardHeaders: true,
-    legacyHeaders: false,
-    skip: (req) => req.path === '/api/health',
-});
-
+// Apply rate limits
 app.use('/api/auth', authLimiter);
 app.use('/api/', apiLimiter);
 
@@ -170,7 +154,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/auth/mfa', mfaRouter);
 app.use('/api/families/:slug/import', importRouter);
 
-// All family routes require authentication
+// All family (data) routes require authentication
 app.use('/api/families', authenticateToken, familiesRouter);
 
 // #24: Redirect HTTP to HTTPS in production
@@ -192,12 +176,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     next();
 });
 
+// CRUD Routers
 app.use('/api/families/:slug/members', createCrudRouter({
     table: 'members', columns: ['name', 'role', 'age', 'notes'], requiredColumns: ['name'],
 }));
 
 app.use('/api/families/:slug/accounts', createCrudRouter({
-    table: 'accounts', columns: ['type', 'institution', 'balance', 'contribution_room', 'target_allocation', 'notes'], requiredColumns: ['type'],
+    table: 'accounts', columns: ['type', 'institution', 'balance', 'symbol', 'units', 'last_price', 'last_price_at', 'asset_class', 'target_percent', 'contribution_room', 'target_allocation', 'notes'], requiredColumns: ['type'],
 }));
 
 app.use('/api/families/:slug/debts', createCrudRouter({
@@ -228,6 +213,7 @@ app.use('/api/families/:slug/recurring', createCrudRouter({
     table: 'recurring_items', columns: ['name', 'category', 'subcategory', 'amount', 'type', 'frequency', 'start_date', 'end_date', 'active'],
 }));
 
+// Feature-specific routers
 app.use('/api/families/:slug/summary', summaryRouter);
 app.use('/api/families/:slug/project', projectionsRouter);
 app.use('/api/families/:slug/tax', taxRouter);
@@ -239,6 +225,17 @@ app.use('/api/families/:slug/coach', coachRouter);
 app.use('/api/families/:slug/vault', vaultRouter);
 app.use('/api/families/:slug/insights', insightsRouter);
 app.use('/api/families/:slug/portfolio', portfolioRouter);
+
+// Health Check
+app.get('/api/health', (_req: Request, res: Response) => {
+    const dbHealthy = healthCheck();
+    const status = dbHealthy ? 'healthy' : 'degraded';
+    const code = dbHealthy ? 200 : 503;
+    res.status(code).json({
+        success: dbHealthy,
+        data: { status, version: '2.0.0', timestamp: new Date().toISOString(), database: dbHealthy ? 'connected' : 'unreachable' }
+    });
+});
 
 // Specific root route to ensure nonce injection happens before any static middleware
 const publicPath = path.join(__dirname, '../public');
@@ -254,29 +251,26 @@ app.get('/', optionalAuth, (req: Request, res: Response) => {
     }
 });
 
-// Set up static files for assets
+// Set up static files for assets (after feature routes)
 app.use(express.static(publicPath, { index: false }));
 
-app.get('/api/health', (_req: Request, res: Response) => {
-    const dbHealthy = healthCheck();
-    const status = dbHealthy ? 'healthy' : 'degraded';
-    const code = dbHealthy ? 200 : 503;
-    res.status(code).json({
-        success: dbHealthy,
-        data: { status, version: '2.0.0', timestamp: new Date().toISOString(), database: dbHealthy ? 'connected' : 'unreachable' }
-    });
-});
-
+// Catch-all route for SPA navigation
 app.get('*', optionalAuth, (req: Request, res: Response) => {
     if (req.path.startsWith('/api/')) {
         return res.status(404).json({ success: false, error: 'API endpoint not found' });
     }
     res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    const html = fs.readFileSync(path.join(publicPath, 'index.html'), 'utf8');
-    const rendered = html.replace(/{{CSP_NONCE}}/g, res.locals.cspNonce);
-    res.send(rendered);
+    try {
+        const html = fs.readFileSync(path.join(publicPath, 'index.html'), 'utf8');
+        const rendered = html.replace(/{{CSP_NONCE}}/g, res.locals.cspNonce || '');
+        res.send(rendered);
+    } catch (err) {
+        console.error('Error reading index.html:', err);
+        res.status(500).send('Internal Server Error');
+    }
 });
 
+// Standard Error Handler
 app.use(errorHandler);
 
 if (require.main === module) {
