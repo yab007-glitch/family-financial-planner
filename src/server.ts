@@ -240,8 +240,21 @@ app.use('/api/families/:slug/vault', vaultRouter);
 app.use('/api/families/:slug/insights', insightsRouter);
 app.use('/api/families/:slug/portfolio', portfolioRouter);
 
-// Set up static files AFTER all API routes but BEFORE the catch-all
+// Specific root route to ensure nonce injection happens before any static middleware
 const publicPath = path.join(__dirname, '../public');
+app.get('/', optionalAuth, (req: Request, res: Response) => {
+    res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    try {
+        const html = fs.readFileSync(path.join(publicPath, 'index.html'), 'utf8');
+        const rendered = html.replace(/{{CSP_NONCE}}/g, res.locals.cspNonce || '');
+        res.send(rendered);
+    } catch (err) {
+        console.error('Error reading index.html:', err);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+// Set up static files for assets
 app.use(express.static(publicPath, { index: false }));
 
 app.get('/api/health', (_req: Request, res: Response) => {
